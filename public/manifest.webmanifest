@@ -1,0 +1,19 @@
+{
+  "name": "Bachify — Together We Save. Simply.",
+  "short_name": "Bachify",
+  "description": "Digital Bhishi and rotating savings group management.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8f7f4",
+  "theme_color": "#0f6b4f",
+  "icons": [
+    {
+      "src": "/icons/bachify-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
