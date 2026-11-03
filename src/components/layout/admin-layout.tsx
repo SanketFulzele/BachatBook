@@ -83,7 +83,7 @@ function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
           </p>
         </div>
         <p className="mt-3 px-1 text-[10px] text-white/30">
-          © {new Date().getFullYear()} Bachify
+          © {new Date().getFullYear()} Bachat Book
         </p>
       </div>
     </div>
@@ -159,11 +159,7 @@ export function AdminLayout() {
               Dev preview
             </Badge>
             <div className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
-            <ProfileMenu
-              name="Aashish Shrestha"
-              email="aashish@bachify.app"
-              role="admin"
-            />
+            <ProfileMenu name="Aashish Shrestha" email="aashish@bachatbook.app" role="admin" />
           </div>
         </header>
 
@@ -178,7 +174,7 @@ export function AdminLayout() {
 
         <footer className="mx-auto w-full max-w-[1440px] px-4 pb-6 sm:px-6 lg:px-8">
           <p className="text-xs text-muted-foreground/70">
-            Bachify · Together We Save. Simply. · Sprint 1 preview
+            Bachat Book · Together We Save. Simply. · Sprint 1 preview
           </p>
         </footer>
       </div>

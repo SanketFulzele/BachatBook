@@ -18,4 +18,4 @@ export function getNeonAuth() {
   return getNeonClient().auth
 }
 
-export type BachifyNeonAuth = ReturnType<typeof getNeonAuth>
+export type BachatBookNeonAuth = ReturnType<typeof getNeonAuth>

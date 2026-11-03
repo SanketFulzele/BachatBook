@@ -1,4 +1,4 @@
-import { getNeonClient, type BachifyNeonClient } from './client'
+import { getNeonClient, type BachatBookNeonClient } from './client'
 
 /**
  * Neon Data API entry point.
@@ -14,6 +14,6 @@ import { getNeonClient, type BachifyNeonClient } from './client'
  * The `.auth` property is present on the underlying client but auth should be
  * reached through ./auth to keep the two concerns readable.
  */
-export function getNeonDataApi(): BachifyNeonClient {
+export function getNeonDataApi(): BachatBookNeonClient {
   return getNeonClient()
 }

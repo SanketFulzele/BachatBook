@@ -57,12 +57,12 @@ export function ForgotPasswordPage() {
           Forgot your password?
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Enter the email linked to your Bachify account and we&apos;ll help you get back in.
+          Enter the email linked to your Bachat Book account and we&apos;ll help you get back in.
         </p>
       </div>
 
       <Alert variant="info" title="UI preview — no email is sent" className="mb-6">
-        Password recovery will be connected to Supabase authentication in Sprint 3.
+        Password recovery will be connected to Neon Auth in Sprint 3.
       </Alert>
 
       {submittedEmail ? (
@@ -102,7 +102,10 @@ export function ForgotPasswordPage() {
 
       <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
         Remembered your password?{' '}
-        <Link to={ROUTES.login} className="font-semibold text-primary underline-offset-4 hover:underline">
+        <Link
+          to={ROUTES.login}
+          className="font-semibold text-primary underline-offset-4 hover:underline"
+        >
           Return to sign in
         </Link>
       </p>

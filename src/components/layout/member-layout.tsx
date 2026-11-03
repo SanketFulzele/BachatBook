@@ -21,7 +21,7 @@ export function MemberLayout() {
           <Link
             to={ROUTES.member.dashboard}
             className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            aria-label="Bachify member portal home"
+            aria-label="Bachat Book member portal home"
           >
             <Logo size="md" />
           </Link>

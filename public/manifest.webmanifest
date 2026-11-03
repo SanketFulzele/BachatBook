@@ -1,6 +1,6 @@
 {
-  "name": "Bachify — Together We Save. Simply.",
-  "short_name": "Bachify",
+  "name": "Bachat Book — Together We Save. Simply.",
+  "short_name": "Bachat Book",
   "description": "Digital Bhishi and rotating savings group management.",
   "start_url": "/",
   "scope": "/",
@@ -10,7 +10,7 @@
   "theme_color": "#0f6b4f",
   "icons": [
     {
-      "src": "/icons/bachify-mark.svg",
+      "src": "/icons/bachat-book-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

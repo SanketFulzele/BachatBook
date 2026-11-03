@@ -1,13 +1,15 @@
-# Bachify — Database Architecture (Neon)
+# Bachat Book — Database Architecture (Neon)
 
 > Sprint 2 deliverable, migrated from Supabase to **Neon PostgreSQL + Managed Better Auth + Data API**.
 > Describes the PostgreSQL schema, financial integrity rules, RLS access model, identity mapping,
 > migration workflow and trusted administrator provisioning.
 >
-> **Status:** all eight migrations were applied to a real local PostgreSQL 18.4 instance with local
-> stand-ins for the Data API roles and `auth.user_id()`. They have **not** been applied to a hosted Neon
-> project, because no project or credentials exist yet. See [Verification](#14-verification) and
-> [Known limitations](#15-known-limitations).
+> **Status:** the hosted Neon project **BachatBook** is provisioned (production branch active) with Neon
+> Auth and the Data API enabled. All eight migrations have been applied to that branch, all 11 application
+> tables have RLS enabled, 31 policies exist (zero `DELETE` policies) and `auth.user_id()` executes
+> successfully. The same schema was validated first on a local PostgreSQL 18.4 instance. Authenticated
+> behaviour under a real session is still pending. See [Verification](#15-verification) and
+> [Known limitations](#16-known-limitations).
 
 ---
 
@@ -444,9 +446,20 @@ only on a throwaway cluster and was **never applied to a hosted project**. It is
 The Neon baseline is the rewritten `00001`–`00007` set, followed by the new
 `00008_add_neon_auth_profile_provisioning.sql`. From this point the Neon files are append-only.
 
+**Sprint 2.6 renamed the product to Bachat Book and changed no SQL.** The migration and seed headers still
+say "Bachify" in comments; no identifier, policy or grant references the brand, so the verified chain is
+untouched by design. Editing applied migrations for a cosmetic comment would break their checksums and
+history, which this project explicitly forbids.
+
+**Sprint 2.7 applied this chain to the hosted project.** All eight migrations ran successfully against the
+**production** branch of the hosted **BachatBook** project, after Neon Auth and the Data API were enabled.
+The hosted schema reports 11 tables, RLS on all 11, 31 policies (zero `DELETE` policies) and a working
+`auth.user_id()`.
+
 ### Prerequisites
 
-1. A Neon project and branch exist.
+1. A Neon project and branch exist. The hosted **BachatBook** project and its **production** branch were
+   provisioned in Sprint 2.7.
 2. The Neon Data API is enabled on the branch. This creates `authenticated`, `anonymous` and
    `auth.user_id()`.
 3. `DATABASE_URL` is the **direct** (non-pooled) connection string and is available only to the shell or
@@ -521,10 +534,10 @@ npx @neondatabase/neon-js gen-types \
 `@neon/neon-js` does not bundle the CLI; Neon's documentation recommends the package's previous name
 for the generator. The generated file works with the current SDK and is not hand-edited.
 
-**Hosted-generation limitation:** the committed file was generated from a local PostgreSQL 18.4 schema
-that contains the same tables, enums and functions as the migrations. It was not generated from a
-hosted Neon branch, because no project exists. Regenerate against the hosted branch after the first
-approved remote migration.
+**Hosted-generation limitation:** the committed file was generated from a local PostgreSQL 18.4 schema that
+contains the same tables, enums and functions as the migrations. The hosted production branch now exists,
+so regenerate against it (`npm run generate-types` with the hosted `DATABASE_URL`) and compare the diff;
+the surface is expected to match because the same eight migrations were applied.
 
 ---
 
@@ -546,6 +559,28 @@ It does **not** create Neon Auth users or profiles, so every auth-dependent colu
 ---
 
 ## 15. Verification
+
+Two layers were verified: the **hosted** project (Sprint 2.7) and the **local pre-flight** schema
+(Sprint 2.5).
+
+### Hosted verification (Sprint 2.7)
+
+Verified on the hosted **BachatBook** project with the **production** branch active. Neon Auth and the Data
+API are enabled on that branch.
+
+| Check                       | Result                               |
+| --------------------------- | ------------------------------------ |
+| Project                     | ✅ Hosted `BachatBook` exists        |
+| Production branch           | ✅ Active                            |
+| Neon Auth                   | ✅ Enabled                           |
+| Neon Data API               | ✅ Enabled                           |
+| Migrations applied remotely | ✅ All 8 (`00001`–`00008`) succeeded |
+| Application tables          | ✅ 11                                |
+| RLS enabled                 | ✅ 11 / 11                           |
+| RLS policies                | ✅ 31; 0 `DELETE` policies           |
+| `auth.user_id()`            | ✅ Executes successfully             |
+
+### Local pre-flight verification (Sprint 2.5)
 
 Performed on **2026-11-03** against a fresh, isolated PostgreSQL **18.4** cluster (port 55432) with local
 test stand-ins for the Neon Data API: `authenticated` / `anonymous` roles, an `auth` schema and
@@ -579,28 +614,47 @@ test stand-ins for the Neon Data API: `authenticated` / `anonymous` roles, an `a
 | Helper functions granted only to `authenticated`      | ✅ admin/provisioning helpers denied to `anonymous`; trigger function not callable   |
 | Type generation                                       | ✅ official Neon generator wrote `src/types/database.types.ts`                       |
 
+### Re-verification after the final edits
+
+The static checks were re-run once all Sprint 2.5 files and Sprint 2.6 rebrand edits were final, to prove
+nothing drifted:
+
+| Check                      | Result                                                                    |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `npm run typecheck`        | ✅ 0 errors                                                               |
+| `npm run lint`             | ✅ 0 errors, 0 warnings                                                   |
+| `npm run build`            | ✅ passed, no chunk-size warning                                          |
+| Direct `supabase` package  | ✅ `npm ls @supabase/supabase-js` returns empty                           |
+| Residual Supabase strings  | ✅ only historical docs, `db/legacy/`, and a generator-emitted type alias |
+| Scratch PostgreSQL cluster | ✅ stopped cleanly after verification                                     |
+
+**Sprint 2.6 (rebrand) changed no SQL.** Migrations `00001`–`00008` and `db/seed.sql` are byte-identical to
+the verified baseline; only their header comments still contain the old product word "Bachify". No schema
+object, enum, policy, function, grant or index uses the brand, so this has zero runtime effect and the
+migration chain remains valid.
+
 ### Not verified
 
-- No hosted Neon project was created or linked.
-- No migration was applied remotely.
-- `neon.ts` was not deployed; no Auth or Data API endpoint exists.
-- Hosted JWT forwarding, PostgREST policy evaluation and real browser sign-in were not exercised.
-- Email delivery and password-reset flows remain Sprint 3 work.
+- Real Neon Auth sign-up and sign-in flows.
+- Administrator user and profile provisioning.
+- Hosted JWT forwarding through the Data API and authenticated RLS visibility per role.
+- Password reset and email delivery.
+- Application authentication integration (session provider, guards, login UI wiring).
 
 ---
 
 ## 16. Known limitations
 
-1. **No hosted project / credentials.** `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` must be
-   supplied before Sprint 3 can call the API. `.env` is git-ignored.
-2. **Local-only migration verification.** The SQL is valid PostgreSQL, but Neon-specific behaviour
-   (Data API JWT claims, hosted role privileges, Auth user ids) will be exercised when the project is
-   linked.
+1. **Hosted URLs are not wired into the app yet.** `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` must
+   be supplied before Sprint 3 can call the API. `.env` is git-ignored.
+2. **Authenticated behaviour is unverified.** The hosted schema, RLS enablement, policy count and
+   `auth.user_id()` are confirmed, but JWT forwarding, per-role visibility and Auth flows have not been
+   exercised under a real session.
 3. **No audit-writing triggers.** The table and policies exist, but application code does not yet emit
    audit rows. That belongs to Sprint 10 (or earlier admin mutations).
 4. **No installment generation.** `installments` and `contribution_obligations` are empty until
    Sprint 6 generates them atomically.
 5. **Seed has no login accounts.** It cannot demonstrate authenticated RLS without first provisioning a
    real Neon Auth user and linking a member (`members.profile_id`).
-6. **Generated types are local.** Regenerate with `npm run generate-types` after the first hosted
-   migration.
+6. **Generated types are from the local schema.** Regenerate with `npm run generate-types` against the
+   hosted branch and compare the diff.

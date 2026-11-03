@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 /**
- * Bachify design tokens.
+ * Bachat Book design tokens.
  *
  * Colors are declared once as CSS variables in `src/styles/globals.css`
  * and mapped here so components never need raw hex values.

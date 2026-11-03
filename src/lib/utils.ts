@@ -30,7 +30,7 @@ const shortDateFormatter = new Intl.DateTimeFormat('en-GB', {
 
 /**
  * Format an amount in Indian Rupees, e.g. `₹1,25,000` or `₹1,25,000.50`.
- * Bachify operates in India: currency INR, locale en-IN, timezone Asia/Kolkata.
+ * Bachat Book operates in India: currency INR, locale en-IN, timezone Asia/Kolkata.
  */
 export function formatCurrency(value: number) {
   return currencyFormatter.format(value)

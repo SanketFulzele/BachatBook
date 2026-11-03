@@ -5,7 +5,7 @@ import type { DashboardSampleData } from '@/features/dashboard/types/dashboard.t
  * -------------------------------------------------------------------------
  * These fixtures exist purely to demonstrate the Sprint 1 dashboard UI.
  * They are static, are not calculated from real records, and must be replaced
- * by TanStack Query + Supabase reads in later sprints. `isSampleData` is kept
+ * by TanStack Query + Neon Data API reads in later sprints. `isSampleData` is kept
  * explicit so it is easy to find and remove every mock dependency.
  */
 export const dashboardSampleData: DashboardSampleData = {

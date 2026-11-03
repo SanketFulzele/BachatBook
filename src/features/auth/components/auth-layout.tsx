@@ -47,7 +47,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <Link
           to={ROUTES.login}
           className="relative w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-4 focus-visible:ring-offset-secondary"
-          aria-label="Bachify login"
+          aria-label="Bachat Book login"
         >
           <Logo variant="light" size="lg" showTagline />
         </Link>
@@ -63,7 +63,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             without the guesswork.
           </h1>
           <p className="mt-4 max-w-sm text-sm leading-6 text-white/60">
-            {APP_TAGLINE} Bachify keeps every contribution, cycle and payout in one clear place.
+            {APP_TAGLINE} Bachat Book keeps every contribution, cycle and payout in one clear place.
           </p>
 
           <ul className="mt-10 space-y-5">
@@ -82,14 +82,14 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         </div>
 
         <p className="relative text-xs text-white/35">
-          © {new Date().getFullYear()} Bachify · Sprint 1 UI preview
+          © {new Date().getFullYear()} Bachat Book · Sprint 1 UI preview
         </p>
       </aside>
 
       {/* Form panel */}
       <div className="flex min-h-screen flex-col">
         <div className="flex items-center justify-between px-5 py-5 sm:px-8 lg:hidden">
-          <Link to={ROUTES.login} aria-label="Bachify login">
+          <Link to={ROUTES.login} aria-label="Bachat Book login">
             <Logo size="md" />
           </Link>
           <span className="text-xs font-medium text-muted-foreground">Preview build</span>

@@ -1,8 +1,8 @@
-# Bachify
+# Bachat Book
 
 **Together We Save. Simply.**
 
-Bachify is a digital Bhishi / rotating savings group management application. It helps small groups of
+Bachat Book is a digital Bhishi / rotating savings group management application. It helps small groups of
 5–10 people organise monthly contributions, chit order, collections, payouts and financial history in
 one clear place.
 
@@ -275,7 +275,7 @@ already enforced by the database.
 ├── public/
 │   ├── favicon.svg
 │   ├── manifest.webmanifest
-│   └── icons/bachify-mark.svg
+│   └── icons/bachat-book-mark.svg
 ├── scripts/
 │   └── generate-types.mjs         # Neon type generator wrapper
 ├── src/

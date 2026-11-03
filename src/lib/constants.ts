@@ -1,4 +1,4 @@
-export const APP_NAME = 'Bachify'
+export const APP_NAME = 'Bachat Book'
 export const APP_TAGLINE = 'Together We Save. Simply.'
 export const APP_DESCRIPTION =
   'A simple, transparent way for Bhishi groups to manage contributions, cycles and payouts.'

@@ -45,9 +45,11 @@ export function LoginPage() {
   return (
     <AuthLayout>
       <div className="mb-7">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Welcome back</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+          Welcome back
+        </p>
         <h2 className="mt-2 text-[26px] font-bold tracking-tight text-secondary">
-          Sign in to Bachify
+          Sign in to Bachat Book
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Manage your savings groups, cycles and collections in one place.

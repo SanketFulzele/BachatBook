@@ -1,65 +1,69 @@
-# Bachify — Project Status
+# Bachat Book — Project Status
 
 > **This file is the handoff document between sprints.** Read it before starting any new sprint.
 > Update it at the end of every sprint. Never delete previous sprint history, never mark unfinished work
 > as done, and never record secret values.
 
-Last updated: **2026-11-03 (Supabase → Neon backend migration complete and re-verified; Sprint 3 not
-started, awaiting review)**
+Last updated: **2026-11-03 (hosted Neon project provisioned and migrations applied; Sprint 3 not started,
+awaiting review)**
 
 ---
 
 ## A. Project Information
 
-| Item                | Value                                                                                                                                                                                                                |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Project name        | **Bachify**                                                                                                                                                                                                          |
-| Tagline             | Together We Save. Simply.                                                                                                                                                                                            |
-| Purpose             | Digital Bhishi / rotating savings group management for small groups (5–10 members): contributions, cycles, collections, payouts and financial history.                                                               |
-| Repository          | `D:\Sanket\GitSanket\BachatBook`                                                                                                                                                                                     |
-| Current sprint      | **Sprint 2.5 — Supabase → Neon backend migration** (configuration preparation complete)                                                                                                                              |
-| Overall status      | Sprint 1 UI is complete. Sprint 2 produced a verified PostgreSQL schema; Sprint 2.5 migrated it to Neon PostgreSQL + Managed Better Auth + Data API. No hosted Neon project exists, and no screen uses the database. |
-| Sprint 1 scope rule | UI, layout, routing and documentation only. No database, auth, CRUD or financial logic.                                                                                                                              |
-| Sprint 2 scope rule | Database schema, migrations, constraints, indexes, RLS, seed data, types and documentation only. No auth wiring, CRUD, generation or calculations.                                                                   |
-| Sprint 2.5 rule     | Replace Supabase with Neon, adapt identity/RLS and regenerate types. No new features, no Sprint 3 auth work, no remote provisioning without approval.                                                                |
+| Item                | Value                                                                                                                                                                                                                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project name        | **Bachat Book**                                                                                                                                                                                                                                                                                                 |
+| Tagline             | Together We Save. Simply.                                                                                                                                                                                                                                                                                       |
+| Purpose             | Digital Bhishi / rotating savings group management for small groups (5–10 members): contributions, cycles, collections, payouts and financial history.                                                                                                                                                          |
+| Repository          | `D:\Sanket\GitSanket\BachatBook`                                                                                                                                                                                                                                                                                |
+| Current sprint      | **Sprint 2.7 — Hosted Neon provisioning** (database provisioned and verified; awaiting Sprint 3 approval)                                                                                                                                                                                                       |
+| Overall status      | Sprint 1 UI is complete. Sprint 2 produced a verified PostgreSQL schema; Sprint 2.5 migrated it to Neon PostgreSQL + Managed Better Auth + Data API; Sprint 2.6 renamed the product to Bachat Book; Sprint 2.7 provisioned the hosted Neon project and applied all migrations. No screen uses the database yet. |
+| Sprint 1 scope rule | UI, layout, routing and documentation only. No database, auth, CRUD or financial logic.                                                                                                                                                                                                                         |
+| Sprint 2 scope rule | Database schema, migrations, constraints, indexes, RLS, seed data, types and documentation only. No auth wiring, CRUD, generation or calculations.                                                                                                                                                              |
+| Sprint 2.5 rule     | Replace Supabase with Neon, adapt identity/RLS and regenerate types. No new features, no Sprint 3 auth work, no remote provisioning without approval.                                                                                                                                                           |
+| Sprint 2.6 rule     | Cosmetic rebrand only. No schema, policy, logic or behaviour changes; SQL baselines untouched.                                                                                                                                                                                                                  |
+| Sprint 2.7 rule     | Provision the hosted Neon project (Auth + Data API), apply migrations, confirm RLS. No application auth wiring, no CRUD, no SQL changes.                                                                                                                                                                        |
 
 ### Technology stack (installed)
 
-| Layer               | Package / version                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| UI framework        | `react@19.3.1`, `react-dom@19.3.1`                                                          |
-| Language            | `typescript@5.9.3` (strict)                                                                 |
-| Build               | `vite@8.3.5`, `@vitejs/plugin-react@6.1.2`                                                  |
-| Styling             | `tailwindcss@3.4.19`, `postcss@8.5.32`, `autoprefixer@10.6.2`                               |
-| Routing             | `react-router-dom@7.18.5`                                                                   |
-| Server state        | `@tanstack/react-query@5.105.1` (provider only)                                             |
-| Forms / validation  | `react-hook-form@7.91.0`, `@hookform/resolvers@7.0.1`, `zod@4.6.7`                          |
-| Icons               | `lucide-react@1.66.0`                                                                       |
-| Charts              | `recharts@3.10.1`                                                                           |
-| Class helpers       | `clsx@2.1.1`, `tailwind-merge@2.6.1`                                                        |
-| Lint / format       | `eslint@10.14.0`, `typescript-eslint@8.72.1`, `prettier@3.9.10`                             |
-| Backend             | `@neon/neon-js@0.10.2` (Managed Better Auth + Data API); PostgreSQL schema/migrations ready |
-| Database (verified) | PostgreSQL 18.4 (local scratch cluster); targets Neon PostgreSQL                            |
-| Neon config         | `@neon/config@1.10.0`; declarative `neon.ts` (not deployed)                                 |
+| Layer               | Package / version                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| UI framework        | `react@19.3.1`, `react-dom@19.3.1`                                                         |
+| Language            | `typescript@5.9.3` (strict)                                                                |
+| Build               | `vite@8.3.5`, `@vitejs/plugin-react@6.1.2`                                                 |
+| Styling             | `tailwindcss@3.4.19`, `postcss@8.5.32`, `autoprefixer@10.6.2`                              |
+| Routing             | `react-router-dom@7.18.5`                                                                  |
+| Server state        | `@tanstack/react-query@5.105.1` (provider only)                                            |
+| Forms / validation  | `react-hook-form@7.91.0`, `@hookform/resolvers@7.0.1`, `zod@4.6.7`                         |
+| Icons               | `lucide-react@1.66.0`                                                                      |
+| Charts              | `recharts@3.10.1`                                                                          |
+| Class helpers       | `clsx@2.1.1`, `tailwind-merge@2.6.1`                                                       |
+| Lint / format       | `eslint@10.14.0`, `typescript-eslint@8.72.1`, `prettier@3.9.10`                            |
+| Backend             | `@neon/neon-js@0.10.2` (Managed Better Auth + Data API); hosted project provisioned        |
+| Database (verified) | Neon PostgreSQL — hosted `BachatBook` project, production branch active                    |
+| Neon config         | `@neon/config@1.10.0`; declarative `neon.ts`; Auth + Data API enabled on the hosted branch |
 
 ---
 
 ## B. Sprint Progress
 
-| #   | Sprint                             | Status        | Notes                                                                                                                                |
-| --- | ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Project Foundation & Design System | **Completed** | UI, layouts, routing, auth screens, dashboard preview, docs.                                                                         |
-| 2   | Supabase & Database Architecture   | **Completed** | Historical baseline: schema, 7 migrations, RLS, seed, types, docs. Verified locally; never pushed to Supabase.                       |
-| 2.5 | Supabase → Neon migration          | **Completed** | Neon baseline migrations, `auth.user_id()` identity mapping, RLS adaptation, types, `neon.ts`, docs. Locally verified; not deployed. |
-| 3   | Authentication & Security          | Not Started   | Real sessions, protected routes, password reset.                                                                                     |
-| 4   | Group & Member Management          | Not Started   | CRUD for groups + members.                                                                                                           |
-| 5   | Cycle & Chit Management            | Not Started   | Cycle rules and chit order.                                                                                                          |
-| 6   | Automatic Installment Generation   | Not Started   | Per-cycle installment rows.                                                                                                          |
-| 7   | Payment Management                 | Not Started   | Contribution recording and status.                                                                                                   |
-| 8   | Payout Management                  | Not Started   | Payout recording tied to collections.                                                                                                |
-| 9   | Dashboards                         | Not Started   | Replace sample data with live queries.                                                                                               |
-| 10  | Reports & Audit Logs               | Not Started   | Exports, audit trail, settings.                                                                                                      |
-| 11  | Testing & Deployment               | Not Started   | Automated tests, CI, production deploy.                                                                                              |
+| #   | Sprint                             | Status        | Notes                                                                                                                                                                    |
+| --- | ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Project Foundation & Design System | **Completed** | UI, layouts, routing, auth screens, dashboard preview, docs.                                                                                                             |
+| 2   | Supabase & Database Architecture   | **Completed** | Historical baseline: schema, 7 migrations, RLS, seed, types, docs. Verified locally; never pushed to Supabase.                                                           |
+| 2.5 | Supabase → Neon migration          | **Completed** | Neon baseline migrations, `auth.user_id()` identity mapping, RLS adaptation, types, `neon.ts`, docs. Verified locally at the time; hosted provisioning completed in 2.7. |
+| 2.6 | Rebrand: Bachify → Bachat Book     | **Completed** | Name, package, icon asset, UI copy, PWA manifest. SQL untouched by design.                                                                                               |
+| 2.7 | Hosted Neon provisioning           | **Completed** | `BachatBook` project, Auth + Data API enabled, 8 migrations applied, RLS and `auth.user_id()` verified on the production branch.                                         |
+| 3   | Authentication & Security          | Not Started   | Real sessions, protected routes, password reset.                                                                                                                         |
+| 4   | Group & Member Management          | Not Started   | CRUD for groups + members.                                                                                                                                               |
+| 5   | Cycle & Chit Management            | Not Started   | Cycle rules and chit order.                                                                                                                                              |
+| 6   | Automatic Installment Generation   | Not Started   | Per-cycle installment rows.                                                                                                                                              |
+| 7   | Payment Management                 | Not Started   | Contribution recording and status.                                                                                                                                       |
+| 8   | Payout Management                  | Not Started   | Payout recording tied to collections.                                                                                                                                    |
+| 9   | Dashboards                         | Not Started   | Replace sample data with live queries.                                                                                                                                   |
+| 10  | Reports & Audit Logs               | Not Started   | Exports, audit trail, settings.                                                                                                                                          |
+| 11  | Testing & Deployment               | Not Started   | Automated tests, CI, production deploy.                                                                                                                                  |
 
 Legend: Not Started · In Progress · Completed · Blocked.
 
@@ -80,7 +84,7 @@ Legend: Not Started · In Progress · Completed · Blocked.
 - `eslint.config.js`: flat config with `js.configs.recommended`, `typescript-eslint` recommended,
   React Hooks and React Refresh rules.
 - `.prettierrc.json`, `.gitignore`, `.env.example`, `index.html` (metadata, Inter font, manifest,
-  favicon), `public/manifest.webmanifest`, `public/icons/bachify-mark.svg`, `public/favicon.svg`.
+  favicon), `public/manifest.webmanifest`, `public/icons/bachat-book-mark.svg`, `public/favicon.svg`.
 - npm scripts: `dev`, `build` (`tsc -b && vite build`), `typecheck`, `lint`, `preview`, `format`,
   `format:check`.
 
@@ -300,16 +304,80 @@ was not started.
 - Outstanding balance documented as
   `GREATEST(expected_amount - SUM(non_voided_payments), 0)`.
 
+### Sprint 2.6 — Project Rebrand (Bachify → Bachat Book) (2026-11-03)
+
+#### 1. Project rebrand — Bachify → Bachat Book
+
+- Display name is now **Bachat Book** everywhere it is shown to users: `APP_NAME` (which drives the logo
+  wordmark, document titles and loading label), login and forgot-password copy, admin/member layouts,
+  footer and copyright lines, `index.html` title and meta description, the PWA manifest, and the
+  `VITE_APP_NAME` default in `.env.example`.
+- Package name `bachify` → `bachat-book` in `package.json` and `package-lock.json`.
+- Asset `public/icons/bachify-mark.svg` → `public/icons/bachat-book-mark.svg` (`git mv`; manifest and logo
+  reference updated). The SVG artwork itself is unchanged.
+- Internal identifiers renamed for consistency: `BachifyNeonClient` → `BachatBookNeonClient`,
+  `BachifyNeonAuth` → `BachatBookNeonAuth`, and the SVG gradient id `bachify-collected` →
+  `bachat-book-collected`.
+- The demo admin address `aashish@bachify.app` became `aashish@bachatbook.app`.
+- **SQL was deliberately not touched.** Migration and seed headers still contain the word "Bachify" in
+  comments only; no schema object, policy, function or grant carries the brand. Rewriting an applied
+  baseline for a cosmetic comment would invalidate the verified chain, so it stays as-is. `db/legacy/`
+  is likewise preserved verbatim as an archive.
+- Historical mentions in this document (for example the `bachify-app/` folder that was considered but
+  never created) are preserved verbatim so the Sprint 1 record remains accurate.
+
+#### 2. Stale Supabase copy removed
+
+- The forgot-password and reset-password screens still promised "Supabase" for Sprint 3; both now say
+  **Neon Auth**. These were the only user-visible Supabase references left after the migration.
+- Stale Supabase wording in `dashboard-page.tsx` and `sample-data.ts` now refers to the Neon Data API.
+- `src/types/database.types.ts` still contains the generator-emitted
+  `Omit<Database, "__InternalSupabase">` helper alias. It is type-only, unused by application code and
+  re-added by the generator on every run, so it is intentionally left in place.
+
+---
+
+### Sprint 2.7 — Hosted Neon Provisioning (2026-11-03)
+
+The hosted environment now exists. This sprint provisioned and verified the database platform only; no
+application code, environment values, SQL migrations or database configuration were changed.
+
+#### 1. Hosted project
+
+- Neon project **BachatBook** created; the **production** branch is active.
+- **Neon Auth** and the **Neon Data API** are enabled on the production branch, which provides the
+  `authenticated` / `anonymous` roles and `auth.user_id()` that the migrations depend on.
+- All **8 migrations** (`00001`–`00008`) were executed successfully against the hosted production branch.
+
+#### 2. Hosted database verification
+
+| Check              | Result                           |
+| ------------------ | -------------------------------- |
+| Application tables | ✅ 11 created                    |
+| RLS enabled        | ✅ 11 / 11 application tables    |
+| RLS policies       | ✅ 31 total; 0 `DELETE` policies |
+| `auth.user_id()`   | ✅ executes successfully         |
+
+These results match the local pre-flight verification recorded under Sprint 2.5, so the schema and policy
+set applied remotely are the same ones that were validated locally.
+
+#### 3. Still pending (not claimed as done)
+
+- Real Neon Auth sign-up and sign-in testing.
+- Admin user and profile provisioning.
+- Hosted JWT forwarding and authenticated RLS testing (per-role visibility through the Data API).
+- Password reset and email delivery.
+- Application authentication integration (session provider, guards, auth UI wiring).
+
 ---
 
 ## D. Pending Work
 
 Everything below is intentionally **not** implemented:
 
-- Hosted Neon project provisioning, enabling Auth + Data API, linking the repo and applying migrations
-  (no credentials; `neon deploy`/remote apply need explicit approval).
-- Neon Auth wiring: session provider, sign-in/out, password reset, email delivery, protected routes,
-  role-based redirects.
+- Real Neon Auth sign-up/sign-in testing; admin user and profile provisioning; password reset and email
+  delivery; application authentication integration (session provider, guards, role redirects).
+- Hosted JWT forwarding and authenticated RLS testing through the Data API.
 - Group, member, cycle, installment, payment and payout CRUD or data fetching.
 - Chit assignment rules, installment generation, financial calculations, running balances.
 - Live dashboards (replacing `sample-data.ts`), member dashboard.
@@ -448,7 +516,11 @@ npm run dev                 # http://localhost:5173
 npm run build && npm run preview
 ```
 
-### Database — apply migrations to Neon (once a project and data source exist)
+### Database — migrations on the hosted Neon project
+
+The hosted **BachatBook** project exists, its **production** branch is active, and Neon Auth + Data API are
+enabled. All eight migrations have been applied to that branch. Use these commands when applying future
+migrations or reseeding a fresh branch:
 
 ```bash
 # PowerShell
@@ -464,13 +536,12 @@ psql $env:DATABASE_URL -v ON_ERROR_STOP=1 -f db/seed.sql
 npm run generate-types
 ```
 
-Prerequisite: enable Neon Auth and the Data API on the branch first; the Data API creates the
-`authenticated` / `anonymous` roles and `auth.user_id()`. `neon.ts` declares both services but does not
-provision them. Do not run `neon deploy`, `neon config apply` or `neon db push` without explicit approval.
+Neon Auth and the Data API are already enabled on the production branch; they provide the
+`authenticated` / `anonymous` roles and `auth.user_id()`. Do not run `neon deploy`, `neon config apply` or
+`neon db push` without explicit approval.
 
-Sprint 2.5 migrations were verified with `psql` against a scratch PostgreSQL 18.4 cluster with local
-stand-ins for the Neon roles because no hosted project exists. Exact commands and results are in
-`docs/DATABASE_ARCHITECTURE.md`.
+Sprint 2.5 also verified the same migration set with `psql` against a scratch PostgreSQL 18.4 cluster with
+local stand-ins for the Neon roles. Exact commands and results are in `docs/DATABASE_ARCHITECTURE.md`.
 
 Node 20.19+ is required by Vite 8 (verified on Node 24.22.1, npm 11.19.1).
 
@@ -514,15 +585,16 @@ Node 20.19+ is required by Vite 8 (verified on Node 24.22.1, npm 11.19.1).
 
 ### Sprint 2.5 issues (Neon migration)
 
-18. **No hosted Neon project.** `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` are still required. The
-    client throws a clear configuration error when first used.
-19. **Migrations were not applied remotely.** They were verified against a fresh local PostgreSQL 18.4
-    cluster with local stand-ins for `auth.user_id()`, `authenticated` and `anonymous`. Hosted Data API
-    JWT forwarding and policy evaluation are unverified.
-20. **`neon.ts` has not been deployed.** Auth and Data API do not exist until the project is linked and the
-    config is applied with explicit approval.
-21. **`database.types.ts` reflects the local verified schema**, not a hosted Neon branch. Regenerate after
-    the first remote migration and compare the diff.
+18. **Hosted project is provisioned; app credentials are not wired yet.** `VITE_NEON_AUTH_URL` and
+    `VITE_NEON_DATA_API_URL` must still be supplied to the client. The client throws a clear configuration
+    error when first used.
+19. **Hosted migrations are applied, but authenticated access is unverified.** All eight migrations ran on
+    the hosted production branch. Hosted JWT forwarding and Data API policy evaluation under a real
+    session have not been exercised.
+20. **Hosted Auth + Data API are enabled but unused by the app.** No sign-up, sign-in, password reset or
+    session handling exists yet; that is Sprint 3.
+21. **`database.types.ts` still reflects the local schema.** Regenerate against the hosted branch and
+    compare the diff; the table/enum/function surface is expected to match.
 22. **No real Neon Auth users exist.** `ensure_own_profile()` is implemented and locally tested, but no
     sign-up/sign-in flow calls it yet; that is Sprint 3.
 23. **No profile-provisioning trigger on auth user creation.** A profile is created only by
@@ -539,9 +611,8 @@ role-aware route access. No CRUD or financial features yet.
 
 Planned scope:
 
-1. Create/link the hosted Neon project with explicit approval, enable Auth + Data API, apply the
-   migrations, regenerate `database.types.ts` and provision the first administrator through the trusted
-   direct-SQL process.
+1. Regenerate `database.types.ts` against the hosted branch, provision the first administrator through the
+   trusted direct-SQL process, and link that Auth user to a profile.
 2. Add an auth session provider (`getSession`, auth state), sign-in, sign-out and password-reset flows
    using `getNeonAuth()` from `src/lib/neon/auth.ts`.
 3. Replace `ProtectedRoutePlaceholder` with real guards for `/admin/*` and `/member/*`, plus role-based
@@ -555,9 +626,10 @@ Planned scope:
 **Out of scope:** group/member CRUD, cycle or installment logic, payment/payout recording — all remain
 in Sprints 4–8.
 
-**Prerequisites before starting:** a Neon project linked to the repository; Neon Auth and Data API
-enabled; `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` supplied; migrations applied and verified;
-an existing administrator Neon Auth user + profile.
+**Prerequisites before starting:** hosted Neon project `BachatBook` with the production branch active
+(already done); Neon Auth and Data API enabled (already done); migrations applied (already done);
+`VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` supplied to the app; an administrator Neon Auth user +
+profile provisioned.
 
 ---
 
@@ -643,7 +715,7 @@ created or linked.**
 | Production build            | `npm run build`         | ✅ Passed — 2820 modules, 1.66 s, no chunk-size warning |
 | Production dependency audit | `npm audit --omit=dev`  | ✅ 0 vulnerabilities                                    |
 | Full audit                  | `npm audit`             | ⚠️ 12 moderate, development tooling only                |
-| Dev server                  | `npm run dev` + `GET /` | ✅ HTTP 200, Bachify title                              |
+| Dev server                  | `npm run dev` + `GET /` | ✅ HTTP 200, Bachat Book title                          |
 
 Build output: `index-*.js` 402.49 kB (gzip 125.91), `dashboard-page-*.js` 384.36 kB (gzip 110.62),
 `label-*.js` 123.92 kB, auth chunks 2.79–4.19 kB, CSS 30.35 kB.
@@ -711,7 +783,8 @@ Build output: `index-*.js` 402.49 kB (gzip 125.91), `dashboard-page-*.js` 384.36
 All checks below were executed on 2026-11-03. Static checks ran on the project. Database checks ran
 against an isolated PostgreSQL **18.4** cluster (port 55432) with local stand-ins for the Neon Data API:
 `authenticated` / `anonymous` roles, an `auth` schema and `auth.user_id()` reading
-`request.jwt.claim.sub`. **No hosted Neon project was created or linked, and `neon.ts` was not deployed.**
+`request.jwt.claim.sub`. At the time no hosted Neon project had been created or linked; that was
+superseded by Sprint 2.7, which applied the same migrations to the hosted production branch.
 
 #### Static checks
 
@@ -785,9 +858,48 @@ Re-run after all files, docs and formatting were finalised, to confirm nothing d
 | Scratch cluster           | ✅ stopped and left clean (`pg_ctl stop`, port 55432)                                     |
 | `.env` in working tree    | ✅ absent; only `.env.example` is tracked                                                 |
 
-#### Not verified
+#### Not verified at the time (superseded where noted)
 
-- Hosted Neon project creation/linking, Auth/Data API enablement and `neon deploy`.
-- Hosted JWT forwarding and Data API policy evaluation.
-- Real Neon Auth sign-up/sign-in, email delivery, password reset and protected routes.
+- Hosted Neon project creation/linking, Auth/Data API enablement and `neon deploy` — **resolved by
+  Sprint 2.7**.
+- Hosted migration application — **resolved by Sprint 2.7**.
+- Hosted JWT forwarding and Data API policy evaluation under an authenticated session — still pending.
+- Real Neon Auth sign-up/sign-in, admin provisioning, email delivery, password reset and protected
+  routes — still pending (Sprint 3).
 - CRUD, installment generation and financial calculations — later sprints.
+
+---
+
+### Sprint 2.7 — Hosted Neon Provisioning (2026-11-03)
+
+Verified on the hosted Neon project. These results supersede the earlier "local-only" state recorded for
+Sprint 2.5. No SQL migration, application file, environment value or database setting was changed to
+produce this record.
+
+#### Verified
+
+| Check                        | Result                                          |
+| ---------------------------- | ----------------------------------------------- |
+| Hosted Neon project          | ✅ **BachatBook** exists                        |
+| Production branch            | ✅ Active                                       |
+| Neon Auth                    | ✅ Enabled on the production branch             |
+| Neon Data API                | ✅ Enabled on the production branch             |
+| Migrations executed remotely | ✅ All 8 (`00001`–`00008`) applied successfully |
+| Application tables           | ✅ 11 created                                   |
+| RLS enabled                  | ✅ 11 / 11 application tables                   |
+| RLS policies                 | ✅ 31 total; 0 `DELETE` policies                |
+| `auth.user_id()`             | ✅ Executes successfully                        |
+
+#### Pending (explicitly not verified yet)
+
+| Item                                      | Status  |
+| ----------------------------------------- | ------- |
+| Real Neon Auth sign-up / sign-in testing  | Pending |
+| Admin user and profile provisioning       | Pending |
+| Hosted JWT forwarding + authenticated RLS | Pending |
+| Password reset and email delivery         | Pending |
+| Application authentication integration    | Pending |
+
+The hosted policy count matches the local pre-flight verification, so the same 31 policies (with no
+`DELETE` policies) are present remotely. What remains unproven is runtime behaviour under a real session:
+JWT forwarding from Managed Better Auth through the Data API, and per-role visibility.

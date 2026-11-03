@@ -73,7 +73,7 @@ export function ResetPasswordPage() {
       </div>
 
       <Alert variant="info" title="UI preview — this is not a live reset link" className="mb-6">
-        Reset links will be issued and verified by Supabase in Sprint 3. Submitting this form does
+        Reset links will be issued and verified by Neon Auth in Sprint 3. Submitting this form does
         not change any password.
       </Alert>
 

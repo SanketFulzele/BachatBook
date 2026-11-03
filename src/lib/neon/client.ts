@@ -14,7 +14,7 @@ import { getNeonConfigIssues, neonAuthUrl, neonDataApiUrl } from './config'
  * never throws, which keeps the UI runnable before a Neon project exists. The
  * first real use fails with an actionable error when configuration is missing.
  */
-function createBachifyNeonClient() {
+function createBachatBookNeonClient() {
   return createClient<Database>({
     auth: {
       url: neonAuthUrl,
@@ -25,12 +25,12 @@ function createBachifyNeonClient() {
   })
 }
 
-export type BachifyNeonClient = ReturnType<typeof createBachifyNeonClient>
+export type BachatBookNeonClient = ReturnType<typeof createBachatBookNeonClient>
 
-let cachedClient: BachifyNeonClient | null = null
+let cachedClient: BachatBookNeonClient | null = null
 
 /** Returns the shared Neon client, creating it on first use. */
-export function getNeonClient(): BachifyNeonClient {
+export function getNeonClient(): BachatBookNeonClient {
   if (cachedClient) return cachedClient
 
   const issues = getNeonConfigIssues()
@@ -41,7 +41,7 @@ export function getNeonClient(): BachifyNeonClient {
     )
   }
 
-  cachedClient = createBachifyNeonClient()
+  cachedClient = createBachatBookNeonClient()
   return cachedClient
 }
 
@@ -51,7 +51,7 @@ export function getNeonClient(): BachifyNeonClient {
  *
  * Prefer getNeonClient() when you want an explicit error boundary.
  */
-export const neon = new Proxy({} as BachifyNeonClient, {
+export const neon = new Proxy({} as BachatBookNeonClient, {
   get(_target, property) {
     const client = getNeonClient()
     const value = Reflect.get(client, property)

@@ -40,7 +40,7 @@ export function DashboardPage() {
       />
 
       <Alert variant="warning" title="Development preview data">
-        All metrics, transactions and payout figures on this page are static fixtures. No Supabase
+        All metrics, transactions and payout figures on this page are static fixtures. No Neon
         connection, financial calculation or live payment exists in Sprint 1.
       </Alert>
 
@@ -69,17 +69,17 @@ export function DashboardPage() {
       >
         <div className="space-y-3 text-sm leading-6 text-muted-foreground">
           <p>
-            This dashboard is a visual preview built with the Bachify design system. Every figure
-            comes from{' '}
+            This dashboard is a visual preview built with the Bachat Book design system. Every
+            figure comes from{' '}
             <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">
               src/features/dashboard/data/sample-data.ts
             </code>
             .
           </p>
           <p>
-            Sprint 2 will introduce the Supabase schema, and Sprint 9 will replace these fixtures
-            with role-aware, live dashboard queries. No financial calculation, contribution or
-            payout is performed here.
+            The schema ships as Neon migrations, and Sprint 9 will replace these fixtures with
+            role-aware, live dashboard queries. No financial calculation, contribution or payout is
+            performed here.
           </p>
           <p className="font-medium text-foreground">
             Status: UI-only preview · sample data · no authentication
