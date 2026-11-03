@@ -8,36 +8,49 @@ export function cn(...inputs: ClassValue[]) {
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
-  currency: 'NPR',
-  maximumFractionDigits: 0,
+  currency: 'INR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
 })
 
 const numberFormatter = new Intl.NumberFormat('en-IN')
 
-/** Format an amount in Nepalese Rupees, e.g. `NPR 1,25,000`. */
+const dateFormatter = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'Asia/Kolkata',
+})
+
+const shortDateFormatter = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  timeZone: 'Asia/Kolkata',
+})
+
+/**
+ * Format an amount in Indian Rupees, e.g. `₹1,25,000` or `₹1,25,000.50`.
+ * Bachify operates in India: currency INR, locale en-IN, timezone Asia/Kolkata.
+ */
 export function formatCurrency(value: number) {
   return currencyFormatter.format(value)
 }
 
-/** Format a plain number with Indian/Nepali digit grouping. */
+/** Format a plain number with Indian digit grouping. */
 export function formatNumber(value: number) {
   return numberFormatter.format(value)
 }
 
-/** Format an ISO date string as `12 Nov 2026`. */
+/** Format an ISO date string as `12 Nov 2026` in Asia/Kolkata. */
 export function formatDate(value: string | Date) {
   const date = typeof value === 'string' ? new Date(value) : value
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date)
+  return dateFormatter.format(date)
 }
 
-/** Format an ISO date string as `12 Nov`. */
+/** Format an ISO date string as `12 Nov` in Asia/Kolkata. */
 export function formatShortDate(value: string | Date) {
   const date = typeof value === 'string' ? new Date(value) : value
-  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date)
+  return shortDateFormatter.format(date)
 }
 
 /** Extract up to two initials from a display name. */

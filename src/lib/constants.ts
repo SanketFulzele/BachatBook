@@ -29,15 +29,6 @@ export const ROUTES = {
   },
 } as const
 
-export const DEFAULT_CURRENCY = 'NPR'
-
-/** Query keys live here so later sprints can share cache invalidation safely. */
-export const queryKeys = {
-  auth: ['auth'] as const,
-  groups: ['groups'] as const,
-  members: ['members'] as const,
-  cycles: ['cycles'] as const,
-  collections: ['collections'] as const,
-  payouts: ['payouts'] as const,
-  dashboard: ['dashboard'] as const,
-}
+export const DEFAULT_CURRENCY = 'INR'
+export const DEFAULT_LOCALE = 'en-IN'
+export const DEFAULT_TIME_ZONE = 'Asia/Kolkata'

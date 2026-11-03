@@ -1,4 +1,10 @@
-/** Shapes reserved for the real Supabase-backed auth layer in Sprint 3. */
+/**
+ * Shapes reserved for the real Neon Auth + Data API layer in Sprint 3.
+ *
+ * `id` is the application profile id (public.profiles.id), not the Neon Auth
+ * user id. The Neon Auth identity is stored separately as
+ * public.profiles.auth_user_id and is never exposed as a route or trust signal.
+ */
 export type AuthRole = 'admin' | 'member'
 
 export interface AuthUser {

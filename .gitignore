@@ -38,3 +38,7 @@ lerna-debug.log*
 .prettiercache
 *.tsbuildinfo
 coverage
+
+# Neon CLI local link state
+.neon
+.neon.*
