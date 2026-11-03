@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { LogOut, ShieldCheck, UserRound } from 'lucide-react'
 import { PageHeader } from '@/components/common/page-header'
 import { Avatar } from '@/components/ui/avatar'
@@ -8,11 +9,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast-context'
 import { useAuth } from '@/features/auth/components/auth-context'
+import { ROUTES } from '@/lib/constants'
 import { Field } from '@/features/bhishi/components/field'
 import { useUpdateOwnProfile } from '@/features/bhishi/hooks/use-bhishi'
 
 export function ProfilePage() {
   const auth = useAuth()
+  const navigate = useNavigate()
   const { toast } = useToast()
   const mutation = useUpdateOwnProfile()
 
@@ -46,7 +49,15 @@ export function ProfilePage() {
   }
 
   const handleSignOut = async () => {
-    await auth.signOut()
+    const signOutError = await auth.signOut()
+    toast({
+      title: signOutError ? 'Sign-out could not be confirmed' : 'Signed out',
+      description: signOutError
+        ? `${signOutError} Close this browser on a shared device.`
+        : 'Your session has ended.',
+      variant: signOutError ? 'error' : 'success',
+    })
+    void navigate(ROUTES.login, { replace: true })
   }
 
   return (

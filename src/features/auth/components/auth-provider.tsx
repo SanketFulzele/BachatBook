@@ -283,15 +283,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadProfile],
   )
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (): Promise<string | null> => {
+    let errorMessage: string | null = null
     try {
-      await getNeonAuth().signOut()
-    } catch {
-      // Clear local state even if the network call fails. The server-side
-      // session expires on its own and RLS never trusts client state.
+      const result = await getNeonAuth().signOut()
+      if (result.error) errorMessage = describeAuthError(result.error)
+    } catch (error) {
+      errorMessage = describeAuthError(error)
     } finally {
       resetToUnauthenticated()
     }
+
+    return errorMessage
   }, [resetToUnauthenticated])
 
   const completeProfile = useCallback(

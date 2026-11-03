@@ -26,6 +26,12 @@ const GroupsPage = lazy(() =>
   })),
 )
 
+const InstallmentsPage = lazy(() =>
+  import('@/features/groups/pages/installments-page').then((module) => ({
+    default: module.InstallmentsPage,
+  })),
+)
+
 const GroupDetailPage = lazy(() =>
   import('@/features/groups/pages/group-detail-page').then((module) => ({
     default: module.GroupDetailPage,
@@ -109,6 +115,7 @@ export const router = createBrowserRouter([
               { path: 'dashboard', element: <DashboardPage /> },
               { path: 'groups', element: <GroupsPage /> },
               { path: 'groups/:groupId', element: <GroupDetailPage /> },
+              { path: 'installments', element: <InstallmentsPage /> },
               { path: 'payments', element: <PaymentsPage /> },
               { path: 'payouts', element: <PayoutsPage /> },
               { path: 'profile', element: <ProfilePage /> },

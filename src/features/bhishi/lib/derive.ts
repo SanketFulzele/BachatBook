@@ -18,6 +18,10 @@ function amount(value: number | string | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+function cents(value: number): number {
+  return Math.round(value * 100)
+}
+
 function todayInIndia(): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
@@ -28,8 +32,7 @@ function todayInIndia(): string {
 }
 
 function statusFor(paid: number, expected: number): PaymentStatus {
-  if (expected > 0 && paid >= expected) return 'paid'
-  if (paid > 0) return 'partial'
+  if (expected > 0 && cents(paid) >= cents(expected)) return 'paid'
   return 'pending'
 }
 
@@ -123,7 +126,7 @@ export function buildSnapshot(raw: RawSnapshot, profileId: string): BhishiSnapsh
         member,
         installmentId: installment.id,
         paidAmount,
-        remaining: Math.max(0, expected - paidAmount),
+        remaining: Math.max(0, cents(expected) - cents(paidAmount)) / 100,
         status: statusFor(paidAmount, expected),
         payments,
       })
@@ -140,9 +143,6 @@ export function buildSnapshot(raw: RawSnapshot, profileId: string): BhishiSnapsh
       0,
     )
     const paidCount = obligationViews.filter((obligation) => obligation.status === 'paid').length
-    const partialCount = obligationViews.filter(
-      (obligation) => obligation.status === 'partial',
-    ).length
     const pendingCount = obligationViews.filter(
       (obligation) => obligation.status === 'pending',
     ).length
@@ -157,7 +157,6 @@ export function buildSnapshot(raw: RawSnapshot, profileId: string): BhishiSnapsh
       expectedTotal,
       collectedAmount,
       paidCount,
-      partialCount,
       pendingCount,
       status: statusFor(collectedAmount, expectedTotal),
       payout: validPayoutByInstallment.get(installment.id) ?? null,

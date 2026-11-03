@@ -1,15 +1,18 @@
 import { Suspense, useEffect, type ReactNode } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/common/logo'
 import { PageLoading } from '@/components/feedback/page-loading'
 import { ProfileMenu } from '@/components/layout/profile-menu'
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown'
 import type { NavigationItem } from '@/types'
 import { cn } from '@/lib/utils'
+import { Ellipsis } from 'lucide-react'
 
 interface AppShellProps {
   homeHref: string
   roleLabel: string
   navigation: NavigationItem[]
+  moreNavigation?: NavigationItem[]
 }
 
 /**
@@ -18,8 +21,10 @@ interface AppShellProps {
  * Mobile: compact header + bottom tab bar (large touch targets).
  * Tablet/desktop: the same destinations move into the header.
  */
-export function AppShell({ homeHref, roleLabel, navigation }: AppShellProps) {
+export function AppShell({ homeHref, roleLabel, navigation, moreNavigation = [] }: AppShellProps) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const isMoreActive = moreNavigation.some((item) => location.pathname.startsWith(item.href))
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
@@ -67,6 +72,13 @@ export function AppShell({ homeHref, roleLabel, navigation }: AppShellProps) {
                 {item.label}
               </NavLink>
             ))}
+            {moreNavigation.length > 0 ? (
+              <MoreMenu
+                items={moreNavigation}
+                active={isMoreActive}
+                onNavigate={(href) => void navigate(href)}
+              />
+            ) : null}
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
@@ -91,7 +103,9 @@ export function AppShell({ homeHref, roleLabel, navigation }: AppShellProps) {
       >
         <div
           className="mx-auto grid max-w-lg px-2"
-          style={{ gridTemplateColumns: `repeat(${navigation.length}, minmax(0, 1fr))` }}
+          style={{
+            gridTemplateColumns: `repeat(${navigation.length + (moreNavigation.length > 0 ? 1 : 0)}, minmax(0, 1fr))`,
+          }}
         >
           {navigation.map((item) => (
             <NavLink
@@ -108,9 +122,54 @@ export function AppShell({ homeHref, roleLabel, navigation }: AppShellProps) {
               <span className="max-w-full truncate">{item.label}</span>
             </NavLink>
           ))}
+          {moreNavigation.length > 0 ? (
+            <MoreMenu
+              items={moreNavigation}
+              active={isMoreActive}
+              side="top"
+              onNavigate={(href) => void navigate(href)}
+            />
+          ) : null}
         </div>
       </nav>
     </div>
+  )
+}
+
+function MoreMenu({
+  items,
+  active,
+  side = 'bottom',
+  onNavigate,
+}: {
+  items: NavigationItem[]
+  active: boolean
+  side?: 'top' | 'bottom'
+  onNavigate: (href: string) => void
+}) {
+  return (
+    <DropdownMenu
+      label="More navigation"
+      side={side}
+      className="flex justify-center"
+      trigger={
+        <span
+          className={cn(
+            'flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-medium md:min-h-10 md:flex-row md:gap-2 md:px-3 md:text-sm',
+            active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Ellipsis className="h-5 w-5 md:h-4 md:w-4" aria-hidden="true" />
+          <span>More</span>
+        </span>
+      }
+    >
+      {items.map((item) => (
+        <DropdownMenuItem key={item.href} icon={item.icon} onSelect={() => onNavigate(item.href)}>
+          {item.label}
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenu>
   )
 }
 

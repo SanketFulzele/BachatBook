@@ -1,6 +1,6 @@
 import { getNeonDataApi } from '@/lib/neon'
 import type { Json } from '@/types/database.types'
-import type { GroupRow, MemberRow, PaymentMethod, RawSnapshot } from '../types'
+import type { ContributionPaymentMethod, GroupRow, MemberRow, RawSnapshot } from '../types'
 
 export interface ChitOrderEntry {
   member_id: string
@@ -188,53 +188,57 @@ export async function activateDraftCycle(cycleId: string): Promise<string> {
 }
 
 export async function recordPayment(input: {
-  installmentId: string
-  memberId: string
+  obligationId: string
   amount: number
   paymentDate: string
-  method: PaymentMethod
+  method: ContributionPaymentMethod
   reference: string
   notes: string
-  profileId: string
 }): Promise<void> {
-  const { error } = await getNeonDataApi()
-    .from('payments')
-    .insert({
-      installment_id: input.installmentId,
-      member_id: input.memberId,
-      amount: input.amount,
-      payment_date: input.paymentDate,
-      payment_method: input.method,
-      reference_number: input.reference.trim() || null,
-      notes: input.notes.trim() || null,
-      recorded_by: input.profileId,
-    })
+  const { error } = await getNeonDataApi().rpc('record_payment', {
+    target_obligation_id: input.obligationId,
+    payment_amount: input.amount,
+    target_payment_date: input.paymentDate,
+    target_payment_method: input.method,
+    payment_reference: input.reference.trim() || null,
+    payment_notes: input.notes.trim() || null,
+  })
+
+  if (error) fail(error)
+}
+
+export async function voidPayment(input: { paymentId: string; reason: string }): Promise<void> {
+  const { error } = await getNeonDataApi().rpc('void_payment', {
+    target_payment_id: input.paymentId,
+    void_reason: input.reason.trim(),
+  })
 
   if (error) fail(error)
 }
 
 export async function recordPayout(input: {
   installmentId: string
-  recipientMemberId: string
   amount: number
   payoutDate: string
-  method: PaymentMethod
-  reference: string
+  method: ContributionPaymentMethod
   notes: string
-  profileId: string
 }): Promise<void> {
-  const { error } = await getNeonDataApi()
-    .from('payouts')
-    .insert({
-      installment_id: input.installmentId,
-      recipient_member_id: input.recipientMemberId,
-      amount: input.amount,
-      payout_date: input.payoutDate,
-      payment_method: input.method,
-      reference_number: input.reference.trim() || null,
-      notes: input.notes.trim() || null,
-      recorded_by: input.profileId,
-    })
+  const { error } = await getNeonDataApi().rpc('record_payout', {
+    target_installment_id: input.installmentId,
+    payout_amount: input.amount,
+    target_payout_date: input.payoutDate,
+    target_payment_method: input.method,
+    payout_notes: input.notes.trim() || null,
+  })
+
+  if (error) fail(error)
+}
+
+export async function voidPayout(input: { payoutId: string; reason: string }): Promise<void> {
+  const { error } = await getNeonDataApi().rpc('void_payout', {
+    target_payout_id: input.payoutId,
+    void_reason: input.reason.trim(),
+  })
 
   if (error) fail(error)
 }

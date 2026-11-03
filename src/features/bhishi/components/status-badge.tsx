@@ -2,12 +2,8 @@ import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 import type { PaymentStatus } from '../types'
 
-const statusConfig: Record<
-  PaymentStatus,
-  { label: string; variant: 'success' | 'warning' | 'destructive' }
-> = {
+const statusConfig: Record<PaymentStatus, { label: string; variant: 'success' | 'destructive' }> = {
   paid: { label: 'Paid', variant: 'success' },
-  partial: { label: 'Partial', variant: 'warning' },
   pending: { label: 'Pending', variant: 'destructive' },
 }
 

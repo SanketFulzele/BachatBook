@@ -16,6 +16,9 @@ roles and the `auth.user_id()` identity function).
 | `00008_add_neon_auth_profile_provisioning.sql` | `ensure_own_profile()` — member-only self-provisioning linked through `auth.user_id()`        | **New for Neon**              |
 | `00009_add_cycle_activation.sql`               | `activate_cycle()` — atomic cycle, chit order, installment and obligation generation          | **Applied**                   |
 | `00010_add_cycle_drafts.sql`                   | Draft cycle, manual chit order and atomic draft activation; one draft/active cycle per group  | **Applied**                   |
+| `00011_collection_day_due_dates.sql`           | Use each cycle's saved collection day for both activation paths                               | **Pending deployment**        |
+| `00012_secure_payment_operations.sql`          | Admin-only transactional payment recording/voiding and own-payment member read policy         | **Pending deployment**        |
+| `00013_secure_payout_operations.sql`           | Admin-only transactional payout recording/voiding, derived recipient and audit history        | **Pending deployment**        |
 
 ## Migration history
 
@@ -27,7 +30,7 @@ preserve.
 The original seven files are archived verbatim in
 [`../legacy/sprint-2-supabase-baseline/`](../legacy/sprint-2-supabase-baseline/) for reference.
 They must **not** be applied to a Neon database. The files in this directory are the Neon baseline,
-followed by the new `00008`, `00009` and `00010` migrations.
+followed by migrations `00008`–`00013`.
 
 `00009` is the first migration that adds a write workflow rather than a table: it wraps cycle
 activation in one `SECURITY DEFINER` transaction so a half-generated schedule can never be left
@@ -39,6 +42,22 @@ active cycle per group, then adds three functions: `create_cycle_draft()`, `set_
 and `activate_cycle_draft()`. The older `activate_cycle()` is intentionally left in place for
 backward compatibility. Both migrations were applied to the hosted production branch and their
 functions/indexes were confirmed there.
+
+`00011` corrects due-date generation in both activation functions. It uses the saved collection-day
+snapshot and clamps to the last calendar day when a month is shorter. It does not modify tables,
+constraints or RLS policies and must be applied only after approval.
+
+`00012` adds admin-only `record_payment()` and `void_payment()` functions. Recording locks the
+obligation and rejects amounts above its current balance; voiding preserves the row and requires a
+reason. Both operations record the acting profile in the payment and append an audit entry. Direct
+Data API payment inserts/updates are revoked, and members can select only their own payment rows.
+Apply it after `00011`; the earlier migrations remain unchanged.
+
+`00013` adds admin-only `record_payout()` and `void_payout()` functions. Recording locks the
+installment, derives the recipient from its saved schedule, and relies on the existing partial unique
+index to prevent duplicate active payouts. Voiding preserves the row, requires a reason, and records
+the acting profile in both the payout and audit log. Direct Data API payout inserts/updates are
+revoked. Apply it after `00012`; no earlier migration is modified.
 
 From this point on, these files are append-only. Never edit a migration that has been applied to a
 persistent Neon database; add the next numbered file instead.

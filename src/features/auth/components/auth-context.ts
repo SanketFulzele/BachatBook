@@ -9,7 +9,7 @@ import type {
 
 export interface AuthContextValue extends AuthState {
   signIn: (input: SignInInput) => Promise<SignInResult>
-  signOut: () => Promise<void>
+  signOut: () => Promise<string | null>
   /** Calls ensure_own_profile() for the signed-in member. Never grants admin. */
   completeProfile: (input: CompleteProfileInput) => Promise<CompleteProfileResult>
   /**

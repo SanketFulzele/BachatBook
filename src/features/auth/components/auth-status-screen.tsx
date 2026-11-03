@@ -12,6 +12,7 @@ import {
 import { Logo } from '@/components/common/logo'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
+import { useToast } from '@/components/ui/toast-context'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { ROUTES } from '@/lib/constants'
 import { dashboardPathForRole } from '../lib/dashboard-path'
@@ -25,8 +26,8 @@ export interface AuthStatusScreenProps {
   issues?: string[]
   userRole?: AuthRole
   requiredRole?: AuthRole
-  onRetry?: () => Promise<void> | void
-  onSignOut?: () => Promise<void> | void
+  onRetry?: () => Promise<unknown> | void
+  onSignOut?: () => Promise<unknown> | void
 }
 
 const variantContent: Record<
@@ -70,6 +71,7 @@ export function AuthStatusScreen({
   onSignOut,
 }: AuthStatusScreenProps) {
   const [isBusy, setIsBusy] = useState(false)
+  const { toast } = useToast()
 
   const content: { eyebrow: string; title: string; description: string; icon: LucideIcon } =
     variant === 'forbidden'
@@ -88,10 +90,17 @@ export function AuthStatusScreen({
 
   useDocumentTitle(content.title)
 
-  const runAction = async (action: () => Promise<void> | void) => {
+  const runAction = async (action: () => Promise<unknown> | void) => {
     setIsBusy(true)
     try {
-      await action()
+      const result = await action()
+      if (typeof result === 'string') {
+        toast({
+          title: 'Sign-out could not be confirmed',
+          description: `${result} Close this browser on a shared device.`,
+          variant: 'error',
+        })
+      }
     } finally {
       setIsBusy(false)
     }

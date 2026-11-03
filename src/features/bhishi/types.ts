@@ -12,7 +12,8 @@ export type PayoutRow = Database['public']['Tables']['payouts']['Row']
 export type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
 export type PaymentMethod = Database['public']['Enums']['payment_method']
-export type PaymentStatus = 'paid' | 'partial' | 'pending'
+export type ContributionPaymentMethod = Exclude<PaymentMethod, 'other'>
+export type PaymentStatus = 'paid' | 'pending'
 
 export interface ObligationView {
   obligation: ObligationRow
@@ -32,7 +33,6 @@ export interface InstallmentView {
   expectedTotal: number
   collectedAmount: number
   paidCount: number
-  partialCount: number
   pendingCount: number
   status: PaymentStatus
   payout: PayoutRow | null

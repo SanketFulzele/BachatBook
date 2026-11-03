@@ -5,9 +5,10 @@
 > migration workflow and trusted administrator provisioning.
 >
 > **Status:** the hosted Neon project **BachatBook** is provisioned (production branch active) with Neon
-> Auth and the Data API enabled. All ten migrations (`00001`–`00010`) have been applied to that branch,
-> all 11 application tables have RLS enabled, 31 policies exist (zero `DELETE` policies) and
-> `auth.user_id()` executes successfully. The same schema was validated first on a local PostgreSQL 18.4
+> Auth and the Data API enabled. Migrations `00001`–`00010` have been applied to that branch; migrations
+> `00011`–`00013` are pending deployment. The hosted schema has all 11 application tables under RLS,
+> 31 policies (zero `DELETE` policies), and `auth.user_id()` executes successfully. Migrations
+> `00001`–`00010` were validated first on a local PostgreSQL 18.4
 > instance. Authenticated behaviour under a real session is still pending. See
 > [Verification](#15-verification) and [Known limitations](#16-known-limitations).
 
@@ -57,7 +58,7 @@ React 19 + Vite
 - One shared `createClient()` instance owns both Auth and Data API state, so the Data API automatically
   receives the JWT issued by the Auth client.
 - Financial workflows that touch several rows (record payment + audit entry, generate installments and
-  obligations) will be PostgreSQL functions called with `.rpc()`. They run in one transaction; the
+  obligations) use PostgreSQL functions called with `.rpc()`. They run in one transaction; the
   browser never orchestrates partial financial writes.
 
 ---
@@ -77,6 +78,9 @@ db/
 │   ├── 00008_add_neon_auth_profile_provisioning.sql
 │   ├── 00009_add_cycle_activation.sql
 │   ├── 00010_add_cycle_drafts.sql
+│   ├── 00011_collection_day_due_dates.sql
+│   ├── 00012_secure_payment_operations.sql
+│   ├── 00013_secure_payout_operations.sql
 │   └── README.md
 ├── legacy/
 │   └── sprint-2-supabase-baseline/   # archived original files; never apply
@@ -160,7 +164,8 @@ old rows are untouched.
 
 ### `installments` — scheduled collection events
 
-`id`, `cycle_id` (FK, `RESTRICT`), `installment_number` (> 0), `scheduled_date`,
+`id`, `cycle_id` (FK, `RESTRICT`), `installment_number` (> 0), `scheduled_date` (cycle month plus
+the saved collection day, clamped to that month's final day),
 `recipient_member_id` (nullable FK → members), `expected_amount` (`NUMERIC(12,2)` > 0), timestamps.
 Unique `(cycle_id, installment_number)`.
 
@@ -173,7 +178,7 @@ recipient through a composite foreign key.
 (`NUMERIC(12,2)` > 0), timestamps. Unique `(installment_id, member_id)`.
 
 Every member — including the recipient of that installment — has one obligation per installment.
-This table is the basis for outstanding-balance calculations in Sprint 7.
+This table is the basis for outstanding-balance calculations and payment-derived status.
 
 ### `payments` — money received
 
@@ -189,7 +194,8 @@ Integrity:
 - `payments_void_consistency`: a voided row must have `voided_at`, `voided_by` and a non-blank
   `correction_reason`; a non-voided row must have all three null.
 - Multiple payments per member/installment are allowed.
-- There is **no stored payment status**. Status is derived from non-voided payment totals in Sprint 7.
+- There is **no stored payment status**. Paid/Pending and outstanding amounts are derived from valid
+  (non-voided) payment totals against the expected contribution.
 
 ### `payouts` — money paid to the installment recipient
 
@@ -333,8 +339,8 @@ non-admin changes `role` or `is_active`, and if anyone changes `id` or `auth_use
 | `cycle_members`            | —         | select own groups' orders             | select all; insert; update                       |
 | `installments`             | —         | select own groups' schedule           | select all; insert; update                       |
 | `contribution_obligations` | —         | select own groups' obligations        | select all; insert; update                       |
-| `payments`                 | —         | select own groups' ledger             | select all; insert; update (void)                |
-| `payouts`                  | —         | select own groups' payouts            | select all; insert; update (void)                |
+| `payments`                 | —         | select own transactions               | select all; record / void through RPC            |
+| `payouts`                  | —         | select own groups' payouts            | select all; record / void through RPC            |
 | `audit_logs`               | —         | —                                     | select; insert                                   |
 
 **No table has a `DELETE` policy.** `authenticated` also has no `DELETE` table privilege anywhere.
@@ -419,10 +425,12 @@ public.activate_cycle_draft(target_cycle_id uuid) returns uuid
   `cycle.chit_order_updated` audit row.
 - `activate_cycle_draft` is admin-only. It locks the group then the cycle, re-validates draft status, no
   other active cycle, all participating members still active and a complete 1..N order, then inserts one
-  installment per month from the cycle snapshots and one obligation per member per installment. It marks
+  installment per month from the cycle snapshots (including the saved collection day) and one obligation
+  per member per installment. It marks
   the cycle and group active and appends a `cycle.activated` audit row, all in one transaction.
 - `create_cycle_draft` appends a `cycle.draft_created` audit row. There is no delete or discard path.
-- The older `activate_cycle(...)` is left untouched for backward compatibility; the app no longer calls it.
+- The older `activate_cycle(...)` remains for backward compatibility; migration `00011` updates its due
+  date calculation as well. The app uses `activate_cycle_draft(...)`.
 
 Draft cycles are ordinary `cycles` rows, so RLS lets group members read them. The client hides drafts from
 member "current cycle" views; the admin group screen exposes `draftCycle` and the ordering editor.
@@ -433,6 +441,67 @@ Member policies exist only for `SELECT`. There is no INSERT/UPDATE/DELETE policy
 memberships, cycles, installments, obligations, payments or payouts. The database — not the React route
 guard — rejects the write. This was exercised with simulated member, outsider and admin identities; see
 [Verification](#15-verification).
+
+### 9.7 Payment recording and correction
+
+`00012_secure_payment_operations.sql` adds the trusted payment write path:
+
+```sql
+public.record_payment(
+  target_obligation_id uuid,
+  payment_amount numeric,
+  target_payment_date date,
+  target_payment_method public.payment_method,
+  payment_reference text default null,
+  payment_notes text default null
+) returns uuid
+
+public.void_payment(target_payment_id uuid, void_reason text) returns uuid
+```
+
+- Both functions are `SECURITY DEFINER`, check `public.is_admin()` and are executable only by
+  `authenticated` users. The browser does not pass an actor/profile id.
+- `record_payment` locks the obligation before summing valid payments. Concurrent partial payments
+  serialize on that row; non-positive, over-precision and excessive amounts are rejected, as are totals
+  exceeding the outstanding balance. Supported new entries are Cash, UPI and Bank Transfer.
+- `void_payment` locks the payment and obligation, requires a non-blank reason, and records
+  `voided_at`/`voided_by` without deleting or changing the original transaction amount.
+- Both operations add an audit row in the same transaction. An error rolls back both the ledger change
+  and its audit entry.
+- Direct `INSERT` and `UPDATE` privileges on `payments` are revoked from `authenticated`; RPCs are the
+  only Data API write path. Existing RLS policies remain an additional boundary.
+- `payments_select_own_or_admin` lets members read only transactions whose `member_id` is linked to their
+  own profile. Administrators retain full payment history.
+- Payment status remains derived from non-voided amounts; a partial total is Pending and outstanding is
+  `GREATEST(expected_amount - SUM(valid_payments), 0)`.
+
+### 9.8 Payout recording and correction
+
+`00013_secure_payout_operations.sql` adds the trusted payout write path:
+
+```sql
+public.record_payout(
+  target_installment_id uuid,
+  payout_amount numeric,
+  target_payout_date date,
+  target_payment_method public.payment_method,
+  payout_notes text default null
+) returns uuid
+
+public.void_payout(target_payout_id uuid, void_reason text) returns uuid
+```
+
+- Both functions are `SECURITY DEFINER`, check `public.is_admin()` and are executable only by
+  `authenticated` users. The browser does not pass a recipient or actor/profile id.
+- `record_payout` locks the installment, derives the recipient from its saved schedule, validates the
+  positive two-decimal amount/date/method, and appends the payout and audit entry in one transaction.
+  The existing partial unique index prevents more than one active payout for an installment.
+- `void_payout` preserves the payout, requires a reason, records the actor and timestamp, and writes an
+  audit entry in the same transaction. A replacement is a new payout row after the old one is voided.
+- Direct `INSERT` and `UPDATE` privileges on `payouts` are revoked from `authenticated`; RLS continues to
+  govern member reads and the RPCs are the only Data API write path.
+- The recorded amount is independent of expected collection. Voided payouts are excluded from schedule
+  status and totals; no fees or automatic calculations are applied.
 
 ---
 
@@ -515,8 +584,10 @@ only on a throwaway cluster and was **never applied to a hosted project**. It is
 `db/legacy/sprint-2-supabase-baseline/` for auditability and must not be applied to Neon.
 
 The Neon baseline is the rewritten `00001`–`00007` set, followed by
-`00008_add_neon_auth_profile_provisioning.sql`, `00009_add_cycle_activation.sql` and
-`00010_add_cycle_drafts.sql`. From this point the Neon files are append-only.
+`00008_add_neon_auth_profile_provisioning.sql`, `00009_add_cycle_activation.sql`,
+`00010_add_cycle_drafts.sql`, `00011_collection_day_due_dates.sql` and
+`00012_secure_payment_operations.sql`, and `00013_secure_payout_operations.sql`. From this point the
+Neon files are append-only.
 
 **Sprint 2.6 renamed the product to Bachat Book and changed no SQL.** The migration and seed headers still
 say "Bachify" in comments; no identifier, policy or grant references the brand, so the verified chain is
@@ -534,6 +605,21 @@ The hosted schema reports 11 tables, RLS on all 11, 31 policies (zero `DELETE` p
 **Sprint 5 added `00010_add_cycle_drafts.sql`** and applied it to the same hosted branch. It adds two
 partial unique indexes and the three draft-workflow functions described in §9.5. It changes no table,
 column, policy or grant, and leaves `activate_cycle(...)` untouched for backward compatibility.
+
+**Sprint 6 adds `00011_collection_day_due_dates.sql`.** It replaces both activation functions so scheduled
+dates use the saved collection day (clamped to month-end), and adds a private date-calculation helper.
+The migration does not change tables, constraints or RLS policies and has not yet been applied to the
+hosted branch. Apply it after approval; do not edit migrations `00001`–`00010`.
+
+**Sprint 7 adds `00012_secure_payment_operations.sql`.** It installs the admin-only payment RPCs, revokes
+direct payment writes and limits member payment reads to their own rows. Apply it after `00011`. Both
+Sprint 6 and Sprint 7 migrations are pending deployment and require verification against the target
+PostgreSQL schema.
+
+**Sprint 8 adds `00013_secure_payout_operations.sql`.** It installs admin-only transactional payout
+recording and voiding, derives the recipient from the installment, writes audit entries, and revokes
+direct payout writes without weakening existing RLS. Apply it after `00012`. Migrations `00011`–`00013`
+are pending deployment and must be validated in order; no hosted database was changed.
 
 ### Prerequisites
 
@@ -614,9 +700,9 @@ npx @neondatabase/neon-js gen-types \
 for the generator. The generated file works with the current SDK and is not hand-edited.
 
 **Generation source:** the committed file was last generated against the hosted production branch after
-migration `00010` was applied, so it includes `activate_cycle`, `create_cycle_draft`,
-`set_cycle_chit_order` and `activate_cycle_draft`. Regenerate with `npm run generate-types` after any
-further migration and commit the diff.
+migration `00010` was applied. It includes the cycle RPCs; Sprint 7 added typed `record_payment` and
+`void_payment` signatures for the pending migration. Regenerate with `npm run generate-types` after
+applying migration `00012` and commit the generated diff.
 
 ---
 
@@ -777,4 +863,6 @@ The following still require a provisioned hosted account:
 6. **Seed has no login accounts.** It cannot demonstrate authenticated RLS without first provisioning a
    real Neon Auth user and linking a member (`members.profile_id`).
 7. **Generated types must be refreshed after schema changes.** They were regenerated from the hosted
-   branch after `00010`; run `npm run generate-types` again after any further migration.
+   branch after `00010`; regenerate after migration `00013` is applied to the target schema.
+8. **Sprint 6–8 database validation is pending.** Migrations `00011`–`00013` have not been applied or
+   exercised in PostgreSQL; hosted RLS/session and mobile-browser checks remain pending.

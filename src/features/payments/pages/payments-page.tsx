@@ -9,9 +9,11 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { DataError } from '@/features/bhishi/components/data-error'
 import { EmptyState } from '@/features/bhishi/components/empty-state'
 import { RecordPaymentDialog } from '@/features/bhishi/components/record-payment-dialog'
+import { StatusBadge } from '@/features/bhishi/components/status-badge'
+import { VoidPaymentDialog } from '@/features/bhishi/components/void-payment-dialog'
 import { useBhishiData } from '@/features/bhishi/hooks/use-bhishi'
 import { groupNameForCycle, paymentOptions } from '@/features/bhishi/lib/derive'
-import type { PaymentMethod, PaymentOption } from '@/features/bhishi/types'
+import type { PaymentMethod, PaymentOption, PaymentRow } from '@/features/bhishi/types'
 
 const methodLabel: Record<PaymentMethod, string> = {
   cash: 'Cash',
@@ -24,6 +26,7 @@ export function PaymentsPage() {
   const query = useBhishiData()
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [initialObligationId, setInitialObligationId] = useState<string>()
+  const [paymentToVoid, setPaymentToVoid] = useState<PaymentRow | null>(null)
 
   const options = useMemo(() => (query.data ? paymentOptions(query.data) : []), [query.data])
 
@@ -43,7 +46,9 @@ export function PaymentsPage() {
     snapshot.installments.map((installment) => [installment.installment.id, installment]),
   )
   const outstandingTotal = options.reduce((total, option) => total + option.obligation.remaining, 0)
-  const recentPayments = snapshot.payments.slice(0, 15)
+  const paymentHistory = [...snapshot.payments].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  )
 
   const openPayment = (obligation?: PaymentOption['obligation']) => {
     setInitialObligationId(obligation?.obligation.id)
@@ -110,6 +115,7 @@ export function PaymentsPage() {
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
+                    <StatusBadge status="pending" />
                     <p className="text-sm font-semibold text-destructive">
                       {formatCurrency(option.obligation.remaining)}
                     </p>
@@ -130,9 +136,9 @@ export function PaymentsPage() {
 
       <Card>
         <CardContent className="p-4 sm:p-5">
-          <h2 className="text-base font-semibold text-secondary">Recent payments</h2>
+          <h2 className="text-base font-semibold text-secondary">Payment history</h2>
 
-          {recentPayments.length === 0 ? (
+          {paymentHistory.length === 0 ? (
             <EmptyState
               icon={HandCoins}
               title="No payments yet"
@@ -140,11 +146,17 @@ export function PaymentsPage() {
             />
           ) : (
             <ul className="mt-3 divide-y divide-border">
-              {recentPayments.map((payment) => {
+              {paymentHistory.map((payment) => {
                 const member = memberById.get(payment.member_id)
                 const installment = installmentById.get(payment.installment_id)
+                const recordedBy = snapshot.profiles.find(
+                  (profile) => profile.id === payment.recorded_by,
+                )
+                const voidedBy = snapshot.profiles.find(
+                  (profile) => profile.id === payment.voided_by,
+                )
                 return (
-                  <li key={payment.id} className="flex items-start justify-between gap-3 py-3">
+                  <li key={payment.id} className="flex items-start gap-3 py-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">
                         {member?.full_name ?? 'Member'}
@@ -160,12 +172,39 @@ export function PaymentsPage() {
                           Ref {payment.reference_number}
                         </p>
                       ) : null}
+                      {payment.notes ? (
+                        <p className="truncate text-xs text-muted-foreground">{payment.notes}</p>
+                      ) : null}
+                      <p className="truncate text-xs text-muted-foreground">
+                        Recorded {formatDate(payment.created_at)} by{' '}
+                        {recordedBy?.full_name ?? 'Admin'}
+                        {payment.is_voided
+                          ? ` · Voided ${payment.voided_at ? formatDate(payment.voided_at) : ''}${voidedBy ? ` by ${voidedBy.full_name}` : ''}`
+                          : ''}
+                      </p>
+                      {payment.is_voided && payment.correction_reason ? (
+                        <p className="text-xs text-destructive">
+                          Void reason: {payment.correction_reason}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-semibold text-success">
+                      <p
+                        className={
+                          payment.is_voided
+                            ? 'text-sm font-semibold text-muted-foreground line-through'
+                            : 'text-sm font-semibold text-success'
+                        }
+                      >
                         {formatCurrency(payment.amount)}
                       </p>
-                      {payment.is_voided ? <Badge variant="destructive">Voided</Badge> : null}
+                      {payment.is_voided ? (
+                        <Badge variant="destructive">Voided</Badge>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => setPaymentToVoid(payment)}>
+                          Void
+                        </Button>
+                      )}
                     </div>
                   </li>
                 )
@@ -180,6 +219,13 @@ export function PaymentsPage() {
         onOpenChange={setPaymentOpen}
         options={options}
         initialObligationId={initialObligationId}
+      />
+      <VoidPaymentDialog
+        payment={paymentToVoid}
+        memberName={
+          paymentToVoid ? (memberById.get(paymentToVoid.member_id)?.full_name ?? 'Member') : ''
+        }
+        onClose={() => setPaymentToVoid(null)}
       />
     </div>
   )

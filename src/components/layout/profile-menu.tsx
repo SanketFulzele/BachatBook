@@ -30,11 +30,13 @@ export function ProfileMenu() {
   const profileHref = isAdmin ? ROUTES.admin.profile : ROUTES.member.profile
 
   const handleSignOut = async () => {
-    await auth.signOut()
+    const error = await auth.signOut()
     toast({
-      title: 'Signed out',
-      description: 'Your session has ended.',
-      variant: 'success',
+      title: error ? 'Sign-out could not be confirmed' : 'Signed out',
+      description: error
+        ? `${error} Close this browser on a shared device.`
+        : 'Your session has ended.',
+      variant: error ? 'error' : 'success',
     })
     void navigate(ROUTES.login, { replace: true })
   }

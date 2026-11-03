@@ -48,6 +48,12 @@ export function MemberPaymentsPage() {
         ),
       )
 
+    const scheduleRows = [...rows].sort((a, b) =>
+      a.installment.installment.scheduled_date.localeCompare(
+        b.installment.installment.scheduled_date,
+      ),
+    )
+
     const myPayments = snapshot.payments
       .filter((payment) => ownIds.has(payment.member_id))
       .sort((a, b) => b.payment_date.localeCompare(a.payment_date))
@@ -56,6 +62,7 @@ export function MemberPaymentsPage() {
       snapshot,
       hasLinkedMember: myMembers.length > 0,
       rows,
+      scheduleRows,
       pendingRows,
       payments: myPayments,
       pendingTotal: pendingRows.reduce((total, row) => total + row.obligation.remaining, 0),
@@ -75,8 +82,7 @@ export function MemberPaymentsPage() {
 
   if (!derived) return null
 
-  const { snapshot, hasLinkedMember, rows, pendingRows, payments, pendingTotal, paidTotal } =
-    derived
+  const { snapshot, hasLinkedMember, scheduleRows, payments, pendingTotal, paidTotal } = derived
 
   if (!hasLinkedMember) {
     return (
@@ -117,34 +123,59 @@ export function MemberPaymentsPage() {
 
       <Card>
         <CardContent className="p-4 sm:p-5">
-          <h2 className="text-base font-semibold text-secondary">Pending contributions</h2>
-          {pendingRows.length === 0 ? (
-            <p className="mt-3 rounded-lg bg-success-soft px-3 py-3 text-sm text-success">
-              Nothing pending. You are all caught up.
+          <h2 className="text-base font-semibold text-secondary">Monthly installments</h2>
+          {scheduleRows.length === 0 ? (
+            <p className="mt-3 rounded-lg bg-muted px-3 py-3 text-sm text-muted-foreground">
+              Your installment plan will appear once your admin activates the cycle.
             </p>
           ) : (
             <ul className="mt-3 divide-y divide-border">
-              {pendingRows.map(({ installment, obligation }) => (
-                <li key={obligation.obligation.id} className="flex items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      Installment #{installment.installment.installment_number} ·{' '}
-                      {groupNameForCycle(snapshot, installment.cycleId)}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      Due {formatDate(installment.installment.scheduled_date)} · Paid{' '}
-                      {formatCurrency(obligation.paidAmount)} of{' '}
-                      {formatCurrency(obligation.obligation.expected_amount)}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-semibold text-destructive">
-                      {formatCurrency(obligation.remaining)}
-                    </p>
-                    <StatusBadge status={obligation.status} />
-                  </div>
-                </li>
-              ))}
+              {scheduleRows.map(({ installment, obligation }) => {
+                const position = snapshot.cycles
+                  .find((cycle) => cycle.cycle.id === installment.cycleId)
+                  ?.members.find((member) => member.member.id === installment.recipient?.id)
+                  ?.cycleMember.chit_number
+                return (
+                  <li key={obligation.obligation.id} className="space-y-1.5 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          #{installment.installment.installment_number} ·{' '}
+                          {groupNameForCycle(snapshot, installment.cycleId)}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          Due {formatDate(installment.installment.scheduled_date)} · Recipient{' '}
+                          {installment.recipient?.full_name ?? 'Not set'}
+                          {position ? ` (Chit #${position})` : ''}
+                        </p>
+                      </div>
+                      <StatusBadge status={obligation.status} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <p>
+                        <span className="text-muted-foreground">Expected </span>
+                        {formatCurrency(obligation.obligation.expected_amount)}
+                      </p>
+                      <p className="text-right">
+                        <span className="text-muted-foreground">Paid </span>
+                        {formatCurrency(obligation.paidAmount)}
+                      </p>
+                      <p className="col-span-2 text-right">
+                        <span className="text-muted-foreground">Outstanding </span>
+                        <span
+                          className={
+                            obligation.remaining > 0
+                              ? 'font-semibold text-destructive'
+                              : 'font-semibold text-success'
+                          }
+                        >
+                          {formatCurrency(obligation.remaining)}
+                        </span>
+                      </p>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </CardContent>
@@ -175,6 +206,11 @@ export function MemberPaymentsPage() {
                         {formatDate(payment.payment_date)} · {methodLabel[payment.payment_method]}
                         {payment.reference_number ? ` · ${payment.reference_number}` : ''}
                       </p>
+                      {payment.is_voided && payment.correction_reason ? (
+                        <p className="text-xs text-destructive">
+                          Void reason: {payment.correction_reason}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="shrink-0 text-right">
                       <p
@@ -195,12 +231,6 @@ export function MemberPaymentsPage() {
           )}
         </CardContent>
       </Card>
-
-      {rows.length === 0 ? (
-        <p className="rounded-xl border border-border bg-card px-4 py-4 text-sm text-muted-foreground">
-          Your installment plan will appear once your admin starts the cycle.
-        </p>
-      ) : null}
     </div>
   )
 }

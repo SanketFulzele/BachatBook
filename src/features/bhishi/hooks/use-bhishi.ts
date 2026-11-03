@@ -12,8 +12,11 @@ import {
   recordPayout,
   setCycleChitOrder,
   updateOwnProfile,
+  voidPayment,
+  voidPayout,
 } from '../api/bhishi-api'
 import { buildSnapshot } from '../lib/derive'
+import type { ContributionPaymentMethod } from '../types'
 
 export function useBhishiData() {
   const auth = useAuth()
@@ -103,45 +106,50 @@ export function useActivateDraftCycle() {
 }
 
 export function useRecordPayment() {
-  const auth = useAuth()
   const invalidate = useInvalidateBhishi()
 
   return useMutation({
     mutationFn: (input: {
-      installmentId: string
-      memberId: string
+      obligationId: string
       amount: number
       paymentDate: string
-      method: 'cash' | 'upi' | 'bank_transfer' | 'other'
+      method: ContributionPaymentMethod
       reference: string
       notes: string
-    }) =>
-      recordPayment({
-        ...input,
-        profileId: auth.user?.id ?? '',
-      }),
+    }) => recordPayment(input),
+    onSuccess: invalidate,
+  })
+}
+
+export function useVoidPayment() {
+  const invalidate = useInvalidateBhishi()
+
+  return useMutation({
+    mutationFn: voidPayment,
     onSuccess: invalidate,
   })
 }
 
 export function useRecordPayout() {
-  const auth = useAuth()
   const invalidate = useInvalidateBhishi()
 
   return useMutation({
     mutationFn: (input: {
       installmentId: string
-      recipientMemberId: string
       amount: number
       payoutDate: string
-      method: 'cash' | 'upi' | 'bank_transfer' | 'other'
-      reference: string
+      method: ContributionPaymentMethod
       notes: string
-    }) =>
-      recordPayout({
-        ...input,
-        profileId: auth.user?.id ?? '',
-      }),
+    }) => recordPayout(input),
+    onSuccess: invalidate,
+  })
+}
+
+export function useVoidPayout() {
+  const invalidate = useInvalidateBhishi()
+
+  return useMutation({
+    mutationFn: voidPayout,
     onSuccess: invalidate,
   })
 }

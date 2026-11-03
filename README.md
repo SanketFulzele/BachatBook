@@ -260,7 +260,7 @@ it never creates a fake login. Every auth-dependent column is `NULL`.
 | `/member`           | Member-only; redirects to `/member/dashboard`                               |
 | `/member/dashboard` | Member home: contribution status, totals, payout recipient                  |
 | `/member/groups`    | My group, chit order and full installment schedule                          |
-| `/member/payments`  | Pending contributions and personal payment history                          |
+| `/member/payments`  | Full monthly schedule and personal payment history                          |
 | `/member/profile`   | Shared profile screen                                                       |
 | `*`                 | Custom 404 page                                                             |
 
@@ -368,7 +368,8 @@ is stored as a running total in the browser.
 | 3      | Authentication & security                                                                                 | In progress (hosted verification pending) |
 | 4      | Simple Bhishi workflow: groups, members, chit order, installments, payments, payouts, dashboards, profile | Implemented (hosted verification pending) |
 | 5      | Cycle drafts, manual chit order, confirmation activation and schedule viewing                             | Implemented (hosted verification pending) |
-| 6      | Testing & deployment                                                                                      | Not started                               |
+| 6      | Automatic monthly installment generation and read-only admin/member installment viewing                   | Implemented (hosted verification pending) |
+| 7      | Testing & deployment                                                                                      | Not started                               |
 
 Reports, exports, audit-log UI, advanced analytics, settings and broad filters are deliberately **not**
 planned. They are not required to run a small Bhishi group and would make the app harder to use.

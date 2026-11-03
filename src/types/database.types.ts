@@ -543,6 +543,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      record_payment: {
+        Args: {
+          payment_amount: number
+          payment_notes?: string | null
+          payment_reference?: string | null
+          target_obligation_id: string
+          target_payment_date: string
+          target_payment_method: Database['public']['Enums']['payment_method']
+        }
+        Returns: string
+      }
+      record_payout: {
+        Args: {
+          payout_amount: number
+          payout_notes?: string | null
+          target_installment_id: string
+          target_payment_method: Database['public']['Enums']['payment_method']
+          target_payout_date: string
+        }
+        Returns: string
+      }
       activate_cycle: {
         Args: {
           chit_order: Json
@@ -590,6 +611,14 @@ export type Database = {
       set_cycle_chit_order: {
         Args: { chit_order: Json; target_cycle_id: string }
         Returns: undefined
+      }
+      void_payment: {
+        Args: { target_payment_id: string; void_reason: string }
+        Returns: string
+      }
+      void_payout: {
+        Args: { target_payout_id: string; void_reason: string }
+        Returns: string
       }
     }
     Enums: {

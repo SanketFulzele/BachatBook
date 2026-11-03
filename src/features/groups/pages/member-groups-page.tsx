@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { CalendarDays, HandCoins, UsersRound, Wallet } from 'lucide-react'
+import { CalendarDays, UsersRound, Wallet } from 'lucide-react'
 import { PageHeader } from '@/components/common/page-header'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -62,6 +62,8 @@ export function MemberGroupsPage() {
         const cycle = currentCycle(group)
         const myChit = cycle?.members.find((entry) => ownMemberIds.has(entry.member.id))
         const installment = cycle?.currentInstallment ?? cycle?.nextInstallment ?? null
+        const myObligation =
+          installment?.obligations.find((entry) => ownMemberIds.has(entry.member.id)) ?? null
         const contribution =
           cycle?.cycle.contribution_amount_snapshot ?? group.group.contribution_amount
         const collectionDay = cycle?.cycle.collection_day_snapshot ?? group.group.collection_day
@@ -129,7 +131,7 @@ export function MemberGroupsPage() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
-                      <StatusBadge status={installment.status} />
+                      <StatusBadge status={myObligation?.status ?? installment.status} />
                       <PayoutBadge paid={Boolean(installment.payout)} />
                     </div>
                   </div>
@@ -238,36 +240,58 @@ export function MemberGroupsPage() {
 
             {cycle ? (
               <section className="space-y-2">
-                <h3 className="text-base font-semibold text-secondary">Cycle schedule</h3>
+                <h3 className="text-base font-semibold text-secondary">Monthly installments</h3>
                 <div className="divide-y divide-border rounded-xl border border-border bg-card">
                   {cycle.installments.map((entry) => {
                     const position = cycle.members.find(
                       (member) => member.member.id === entry.recipient?.id,
                     )?.cycleMember.chit_number
+                    const ownObligation =
+                      entry.obligations.find((obligation) =>
+                        ownMemberIds.has(obligation.member.id),
+                      ) ?? null
                     return (
-                      <div
-                        key={entry.installment.id}
-                        className="flex items-center gap-3 px-3.5 py-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium">
-                            #{entry.installment.installment_number} ·{' '}
-                            {formatDate(entry.installment.scheduled_date)}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {entry.recipient?.full_name ?? 'No recipient'}
-                            {position ? ` · Chit #${position}` : ''}
-                          </p>
+                      <div key={entry.installment.id} className="space-y-2 px-3.5 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium">
+                              #{entry.installment.installment_number} ·{' '}
+                              {formatDate(entry.installment.scheduled_date)}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              Recipient {entry.recipient?.full_name ?? 'Not set'}
+                              {position ? ` · Chit #${position}` : ''}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <StatusBadge status={ownObligation?.status ?? entry.status} />
+                            <PayoutBadge paid={Boolean(entry.payout)} />
+                          </div>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1">
-                          <StatusBadge status={entry.status} />
-                          {entry.payout ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-success">
-                              <HandCoins className="h-3.5 w-3.5" aria-hidden="true" />
-                              Paid out
-                            </span>
-                          ) : null}
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Actual payout</span>
+                          <span className="font-medium">
+                            {entry.payout ? formatCurrency(entry.payout.amount) : 'Not recorded'}
+                          </span>
                         </div>
+                        {entry.payout ? (
+                          <p className="text-right text-xs text-muted-foreground">
+                            Paid {formatDate(entry.payout.payout_date)}
+                          </p>
+                        ) : null}
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Your contribution</span>
+                          <span className="font-semibold">
+                            {formatCurrency(
+                              ownObligation?.obligation.expected_amount ?? contribution,
+                            )}
+                          </span>
+                        </div>
+                        {ownObligation && ownObligation.remaining > 0 ? (
+                          <p className="text-xs font-medium text-destructive">
+                            {formatCurrency(ownObligation.remaining)} still pending
+                          </p>
+                        ) : null}
                       </div>
                     )
                   })}

@@ -8,7 +8,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { Field } from './field'
 import { useRecordPayment } from '../hooks/use-bhishi'
 import { todayISO } from '../lib/dates'
-import type { PaymentMethod, PaymentOption } from '../types'
+import type { ContributionPaymentMethod, PaymentOption } from '../types'
 
 interface RecordPaymentDialogProps {
   open: boolean
@@ -55,10 +55,11 @@ function RecordPaymentForm({
   const [obligationId, setObligationId] = useState(preferred?.obligation.obligation.id ?? '')
   const [amount, setAmount] = useState(preferred ? String(preferred.obligation.remaining) : '')
   const [paymentDate, setPaymentDate] = useState(todayISO)
-  const [method, setMethod] = useState<PaymentMethod>('cash')
+  const [method, setMethod] = useState<ContributionPaymentMethod>('cash')
   const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   const selected =
     options.find((option) => option.obligation.obligation.id === obligationId) ?? null
@@ -92,10 +93,14 @@ function RecordPaymentForm({
       return
     }
 
+    if (!confirming) {
+      setConfirming(true)
+      return
+    }
+
     mutation.mutate(
       {
-        installmentId: selected.installment.installment.id,
-        memberId: selected.obligation.member.id,
+        obligationId: selected.obligation.obligation.id,
         amount: parsedAmount,
         paymentDate,
         method,
@@ -129,13 +134,18 @@ function RecordPaymentForm({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
+          {confirming ? (
+            <Button type="button" variant="outline" onClick={() => setConfirming(false)}>
+              Back
+            </Button>
+          ) : null}
           <Button
             type="submit"
             form="record-payment-form"
             isLoading={mutation.isPending}
-            disabled={options.length === 0}
+            disabled={options.length === 0 || !selected}
           >
-            Save payment
+            {confirming ? 'Confirm & save' : 'Review payment'}
           </Button>
         </>
       }
@@ -147,103 +157,116 @@ function RecordPaymentForm({
         </p>
       ) : (
         <form id="record-payment-form" className="space-y-4" onSubmit={handleSubmit}>
-          <Field label="Contribution" htmlFor="payment-obligation" required>
-            <Select
-              id="payment-obligation"
-              value={obligationId}
-              onChange={(event) => handleSelect(event.target.value)}
-              required
-            >
-              {options.map((option) => (
-                <option
-                  key={option.obligation.obligation.id}
-                  value={option.obligation.obligation.id}
-                >
-                  {option.groupName} · #{option.installment.installment.installment_number} ·{' '}
-                  {option.obligation.member.full_name} ·{' '}
-                  {formatDate(option.installment.installment.scheduled_date)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          {selected ? (
-            <div className="rounded-xl bg-muted/60 px-3.5 py-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Member</span>
-                <span className="font-medium">{selected.obligation.member.full_name}</span>
-              </div>
-              <div className="mt-1.5 flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Remaining</span>
-                <span className="font-semibold text-destructive">
-                  {formatCurrency(selected.obligation.remaining)}
-                </span>
-              </div>
+          {confirming && selected ? (
+            <div className="space-y-2 rounded-xl bg-muted/60 px-3.5 py-3 text-sm">
+              <p className="font-semibold">Confirm payment</p>
+              <p>{selected.obligation.member.full_name}</p>
+              <p>
+                {formatCurrency(Number(amount))} · {formatDate(paymentDate)} ·{' '}
+                {method === 'bank_transfer' ? 'Bank transfer' : method === 'upi' ? 'UPI' : 'Cash'}
+              </p>
+              {notes.trim() ? <p className="text-muted-foreground">{notes.trim()}</p> : null}
             </div>
-          ) : null}
+          ) : (
+            <>
+              <Field label="Contribution" htmlFor="payment-obligation" required>
+                <Select
+                  id="payment-obligation"
+                  value={obligationId}
+                  onChange={(event) => handleSelect(event.target.value)}
+                  required
+                >
+                  {options.map((option) => (
+                    <option
+                      key={option.obligation.obligation.id}
+                      value={option.obligation.obligation.id}
+                    >
+                      {option.groupName} · #{option.installment.installment.installment_number} ·{' '}
+                      {option.obligation.member.full_name} ·{' '}
+                      {formatDate(option.installment.installment.scheduled_date)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Amount (₹)" htmlFor="payment-amount" required>
-              <Input
-                id="payment-amount"
-                className="h-11"
-                type="number"
-                min={1}
-                step="0.01"
-                inputMode="decimal"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                required
-              />
-            </Field>
-            <Field label="Payment date" htmlFor="payment-date" required>
-              <Input
-                id="payment-date"
-                className="h-11"
-                type="date"
-                value={paymentDate}
-                onChange={(event) => setPaymentDate(event.target.value)}
-                required
-              />
-            </Field>
-          </div>
+              {selected ? (
+                <div className="rounded-xl bg-muted/60 px-3.5 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Member</span>
+                    <span className="font-medium">{selected.obligation.member.full_name}</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Remaining</span>
+                    <span className="font-semibold text-destructive">
+                      {formatCurrency(selected.obligation.remaining)}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
 
-          <Field label="Method" htmlFor="payment-method" required>
-            <Select
-              id="payment-method"
-              value={method}
-              onChange={(event) => setMethod(event.target.value as PaymentMethod)}
-            >
-              <option value="cash">Cash</option>
-              <option value="upi">UPI</option>
-              <option value="bank_transfer">Bank transfer</option>
-              <option value="other">Other</option>
-            </Select>
-          </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Amount (₹)" htmlFor="payment-amount" required>
+                  <Input
+                    id="payment-amount"
+                    className="h-11"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    required
+                  />
+                </Field>
+                <Field label="Payment date" htmlFor="payment-date" required>
+                  <Input
+                    id="payment-date"
+                    className="h-11"
+                    type="date"
+                    value={paymentDate}
+                    onChange={(event) => setPaymentDate(event.target.value)}
+                    required
+                  />
+                </Field>
+              </div>
 
-          <Field
-            label="Reference"
-            htmlFor="payment-reference"
-            hint="Optional receipt or UPI reference."
-          >
-            <Input
-              id="payment-reference"
-              className="h-11"
-              value={reference}
-              onChange={(event) => setReference(event.target.value)}
-              maxLength={80}
-            />
-          </Field>
+              <Field label="Method" htmlFor="payment-method" required>
+                <Select
+                  id="payment-method"
+                  value={method}
+                  onChange={(event) => setMethod(event.target.value as ContributionPaymentMethod)}
+                >
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="bank_transfer">Bank transfer</option>
+                </Select>
+              </Field>
 
-          <Field label="Note" htmlFor="payment-notes" hint="Optional.">
-            <Input
-              id="payment-notes"
-              className="h-11"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              maxLength={200}
-            />
-          </Field>
+              <Field
+                label="Reference"
+                htmlFor="payment-reference"
+                hint="Optional receipt or UPI reference."
+              >
+                <Input
+                  id="payment-reference"
+                  className="h-11"
+                  value={reference}
+                  onChange={(event) => setReference(event.target.value)}
+                  maxLength={80}
+                />
+              </Field>
+
+              <Field label="Note" htmlFor="payment-notes" hint="Optional.">
+                <Input
+                  id="payment-notes"
+                  className="h-11"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  maxLength={200}
+                />
+              </Field>
+            </>
+          )}
 
           {error ? (
             <p

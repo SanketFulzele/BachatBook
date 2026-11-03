@@ -13,6 +13,7 @@ export const ROUTES = {
     dashboard: '/admin/dashboard',
     groups: '/admin/groups',
     group: (groupId: string) => `/admin/groups/${groupId}`,
+    installments: '/admin/installments',
     payments: '/admin/payments',
     payouts: '/admin/payouts',
     profile: '/admin/profile',

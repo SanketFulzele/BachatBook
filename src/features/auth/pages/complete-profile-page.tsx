@@ -77,8 +77,15 @@ export function CompleteProfilePage() {
 
   const onSignOut = async () => {
     setIsSigningOut(true)
-    await auth.signOut()
+    const signOutError = await auth.signOut()
     setIsSigningOut(false)
+    toast({
+      title: signOutError ? 'Sign-out could not be confirmed' : 'Signed out',
+      description: signOutError
+        ? `${signOutError} Close this browser on a shared device.`
+        : 'Your session has ended.',
+      variant: signOutError ? 'error' : 'success',
+    })
     void navigate(ROUTES.login, { replace: true })
   }
 

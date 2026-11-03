@@ -20,6 +20,7 @@ export interface DropdownMenuProps {
   trigger: ReactNode
   children: ReactNode
   align?: 'start' | 'end'
+  side?: 'top' | 'bottom'
   label: string
   className?: string
   menuClassName?: string
@@ -29,6 +30,7 @@ export function DropdownMenu({
   trigger,
   children,
   align = 'end',
+  side = 'bottom',
   label,
   className,
   menuClassName,
@@ -110,8 +112,15 @@ export function DropdownMenu({
             role="menu"
             aria-label={label}
             className={cn(
-              'absolute top-[calc(100%+0.5rem)] z-40 min-w-52 rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-elevated animate-scale-in',
-              align === 'end' ? 'right-0 origin-top-right' : 'left-0 origin-top-left',
+              'absolute z-40 min-w-52 rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-elevated animate-scale-in',
+              side === 'bottom' ? 'top-[calc(100%+0.5rem)]' : 'bottom-[calc(100%+0.5rem)]',
+              align === 'end'
+                ? side === 'bottom'
+                  ? 'right-0 origin-top-right'
+                  : 'right-0 origin-bottom-right'
+                : side === 'bottom'
+                  ? 'left-0 origin-top-left'
+                  : 'left-0 origin-bottom-left',
               menuClassName,
             )}
             onKeyDown={(event) => {

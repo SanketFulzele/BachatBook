@@ -1,3 +1,4 @@
+import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { PayoutBadge, StatusBadge } from './status-badge'
@@ -14,7 +15,6 @@ export function InstallmentList({ cycle, onRecordPayment, onRecordPayout }: Inst
     <div className="space-y-3">
       {cycle.installments.map((installment) => {
         const row = installment.installment
-        const pending = installment.obligations.filter((obligation) => obligation.remaining > 0)
         const chitNumber = installment.recipient
           ? (cycle.members.find((entry) => entry.member.id === installment.recipient?.id)
               ?.cycleMember.chit_number ?? null)
@@ -48,12 +48,8 @@ export function InstallmentList({ cycle, onRecordPayment, onRecordPayout }: Inst
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Payout</p>
-                <p className="mt-0.5 font-medium">
-                  {installment.payout
-                    ? formatCurrency(installment.payout.amount)
-                    : formatCurrency(installment.expectedTotal)}
-                </p>
+                <p className="text-xs text-muted-foreground">Expected collection</p>
+                <p className="mt-0.5 font-medium">{formatCurrency(installment.expectedTotal)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Collected</p>
@@ -71,22 +67,65 @@ export function InstallmentList({ cycle, onRecordPayment, onRecordPayout }: Inst
                 </p>
               </div>
             </div>
+            <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2 text-sm">
+              {installment.payout ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Actual payout</span>
+                  <span className="text-right font-medium">
+                    {formatCurrency(installment.payout.amount)} ·{' '}
+                    {formatDate(installment.payout.payout_date)}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Payout</span>
+                  <span className="font-medium">Pending</span>
+                </div>
+              )}
+            </div>
 
-            {onRecordPayment || onRecordPayout ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {onRecordPayment && pending.length > 0 ? (
-                  <Button
-                    size="md"
-                    variant="outline"
-                    onClick={() => {
-                      const first = pending[0]
-                      if (first) onRecordPayment(first)
-                    }}
+            <details className="mt-3 rounded-lg border border-border">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                <span className="font-medium">Members &amp; status</span>
+                <span className="text-xs text-muted-foreground">
+                  {installment.paidCount} paid · {installment.pendingCount} pending
+                </span>
+              </summary>
+              <ul className="divide-y divide-border border-t border-border">
+                {installment.obligations.map((obligation) => (
+                  <li
+                    key={obligation.obligation.id}
+                    className="flex items-center gap-3 px-3 py-2.5"
                   >
-                    Record payment ({pending.length})
-                  </Button>
-                ) : null}
-                {onRecordPayout && !installment.payout ? (
+                    <Avatar name={obligation.member.full_name} size="sm" decorative />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{obligation.member.full_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Paid {formatCurrency(obligation.paidAmount)} of{' '}
+                        {formatCurrency(obligation.obligation.expected_amount)} · Outstanding{' '}
+                        {formatCurrency(obligation.remaining)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <StatusBadge status={obligation.status} />
+                      {onRecordPayment && obligation.remaining > 0 ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onRecordPayment(obligation)}
+                        >
+                          Record
+                        </Button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+
+            {onRecordPayout ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!installment.payout ? (
                   <Button size="md" variant="ghost" onClick={() => onRecordPayout(installment)}>
                     Record payout
                   </Button>
