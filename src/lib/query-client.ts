@@ -2,8 +2,11 @@ import { QueryClient } from '@tanstack/react-query'
 
 /**
  * Shared TanStack Query client.
- * Data fetching is intentionally absent until Sprint 3; defaults are ready for
- * the Neon Data API-backed queries introduced by the auth sprint.
+ *
+ * Authentication state is owned by AuthProvider, not by TanStack Query. The
+ * cache is cleared on sign-out/session loss so a different account never sees
+ * the previous user's cached data. Feature queries backed by the Neon Data API
+ * are added in later sprints.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {

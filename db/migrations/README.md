@@ -14,6 +14,8 @@ roles and the `auth.user_id()` identity function).
 | `00006_enable_rls.sql`                         | RLS on all 11 application tables                                                              | Superseded baseline, adapted  |
 | `00007_create_rls_policies.sql`                | 31 policies, explicit grants, immutable financial/audit tables                                | Rewritten for Neon identities |
 | `00008_add_neon_auth_profile_provisioning.sql` | `ensure_own_profile()` — member-only self-provisioning linked through `auth.user_id()`        | **New for Neon**              |
+| `00009_add_cycle_activation.sql`               | `activate_cycle()` — atomic cycle, chit order, installment and obligation generation          | **Applied**                   |
+| `00010_add_cycle_drafts.sql`                   | Draft cycle, manual chit order and atomic draft activation; one draft/active cycle per group  | **Applied**                   |
 
 ## Migration history
 
@@ -25,7 +27,18 @@ preserve.
 The original seven files are archived verbatim in
 [`../legacy/sprint-2-supabase-baseline/`](../legacy/sprint-2-supabase-baseline/) for reference.
 They must **not** be applied to a Neon database. The files in this directory are the Neon baseline,
-followed by the new `00008` migration.
+followed by the new `00008`, `00009` and `00010` migrations.
+
+`00009` is the first migration that adds a write workflow rather than a table: it wraps cycle
+activation in one `SECURITY DEFINER` transaction so a half-generated schedule can never be left
+behind. Login-to-member uniqueness is already enforced by the `members_profile_id_key` index from
+`00004`, so `00009` adds no duplicate index.
+
+`00010` adds the Sprint 5 draft workflow. It creates partial unique indexes for one draft and one
+active cycle per group, then adds three functions: `create_cycle_draft()`, `set_cycle_chit_order()`
+and `activate_cycle_draft()`. The older `activate_cycle()` is intentionally left in place for
+backward compatibility. Both migrations were applied to the hosted production branch and their
+functions/indexes were confirmed there.
 
 From this point on, these files are append-only. Never edit a migration that has been applied to a
 persistent Neon database; add the next numbered file instead.

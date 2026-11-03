@@ -5,11 +5,11 @@
 > migration workflow and trusted administrator provisioning.
 >
 > **Status:** the hosted Neon project **BachatBook** is provisioned (production branch active) with Neon
-> Auth and the Data API enabled. All eight migrations have been applied to that branch, all 11 application
-> tables have RLS enabled, 31 policies exist (zero `DELETE` policies) and `auth.user_id()` executes
-> successfully. The same schema was validated first on a local PostgreSQL 18.4 instance. Authenticated
-> behaviour under a real session is still pending. See [Verification](#15-verification) and
-> [Known limitations](#16-known-limitations).
+> Auth and the Data API enabled. All ten migrations (`00001`–`00010`) have been applied to that branch,
+> all 11 application tables have RLS enabled, 31 policies exist (zero `DELETE` policies) and
+> `auth.user_id()` executes successfully. The same schema was validated first on a local PostgreSQL 18.4
+> instance. Authenticated behaviour under a real session is still pending. See
+> [Verification](#15-verification) and [Known limitations](#16-known-limitations).
 
 ---
 
@@ -75,6 +75,8 @@ db/
 │   ├── 00006_enable_rls.sql
 │   ├── 00007_create_rls_policies.sql
 │   ├── 00008_add_neon_auth_profile_provisioning.sql
+│   ├── 00009_add_cycle_activation.sql
+│   ├── 00010_add_cycle_drafts.sql
 │   └── README.md
 ├── legacy/
 │   └── sprint-2-supabase-baseline/   # archived original files; never apply
@@ -357,12 +359,80 @@ There is still **no `INSERT` policy on `profiles`** and no client path to `admin
 only self-service path, and it can create members only. Administrators remain a trusted manual
 provisioning step.
 
-### 9.4 Why members cannot write financially
+### 9.4 Cycle activation
+
+`00009_add_cycle_activation.sql` adds one write workflow:
+
+```sql
+public.activate_cycle(
+  target_group_id uuid,
+  cycle_name text,
+  cycle_start_date date,
+  chit_order jsonb
+) returns uuid
+```
+
+- Admin-only, checked with `public.is_admin()` inside the function; `EXECUTE` is revoked from `PUBLIC` and
+  granted only to `authenticated`.
+- Validates that the group is not archived, has no other active cycle, and that the JSON chit order covers
+  exactly the active members with distinct numbers.
+- Copies the group's contribution amount and collection day into the new cycle, creates `cycle_members`,
+  one monthly `installments` row per chit number, and one `contribution_obligations` row per member per
+  installment.
+- Marks the group `active` and appends an `audit_logs` entry, all in the same transaction.
+- Login-to-member uniqueness was already enforced by `members_profile_id_key` from `00004`; `00009` does
+  not add a duplicate index.
+
+### 9.5 Cycle drafts and manual chit order
+
+`00010_add_cycle_drafts.sql` adds the Sprint 5 workflow. It changes no table; every rule lives in
+functions and partial unique indexes.
+
+```sql
+create unique index cycles_one_active_per_group on public.cycles (group_id)
+  where status = 'active';
+
+create unique index cycles_one_draft_per_group on public.cycles (group_id)
+  where status = 'draft';
+
+public.create_cycle_draft(
+  target_group_id uuid,
+  cycle_name text,
+  cycle_start_date date,
+  contribution_amount numeric,
+  collection_day integer
+) returns uuid
+
+public.set_cycle_chit_order(target_cycle_id uuid, chit_order jsonb) returns void
+
+public.activate_cycle_draft(target_cycle_id uuid) returns uuid
+```
+
+- `create_cycle_draft` is admin-only, locks the group, rejects archived groups, duplicate active/draft
+  cycles, invalid input and fewer than two active members. It stores the contribution and collection-day
+  snapshots, sets `total_members`/`duration_months` to the active-member count and inserts every active
+  member with a deterministic provisional chit order (alphabetical).
+- `set_cycle_chit_order` is admin-only and works only while the cycle is a `draft`. The JSON array must
+  cover exactly the participating members, with unique member ids and chit numbers running 1..N. The
+  function first offsets existing chit numbers by 1,000,000 and then writes the new order, so the unique
+  `(cycle_id, chit_number)` constraint is never violated mid-save. It appends a
+  `cycle.chit_order_updated` audit row.
+- `activate_cycle_draft` is admin-only. It locks the group then the cycle, re-validates draft status, no
+  other active cycle, all participating members still active and a complete 1..N order, then inserts one
+  installment per month from the cycle snapshots and one obligation per member per installment. It marks
+  the cycle and group active and appends a `cycle.activated` audit row, all in one transaction.
+- `create_cycle_draft` appends a `cycle.draft_created` audit row. There is no delete or discard path.
+- The older `activate_cycle(...)` is left untouched for backward compatibility; the app no longer calls it.
+
+Draft cycles are ordinary `cycles` rows, so RLS lets group members read them. The client hides drafts from
+member "current cycle" views; the admin group screen exposes `draftCycle` and the ordering editor.
+
+### 9.6 Why members cannot write financially
 
 Member policies exist only for `SELECT`. There is no INSERT/UPDATE/DELETE policy for members on groups,
 memberships, cycles, installments, obligations, payments or payouts. The database — not the React route
 guard — rejects the write. This was exercised with simulated member, outsider and admin identities; see
-[Verification](#14-verification).
+[Verification](#15-verification).
 
 ---
 
@@ -382,18 +452,18 @@ The browser layer lives in `src/lib/neon/`:
 
 Environment variables:
 
-| Variable                 | Required            | Notes                                             |
-| ------------------------ | ------------------- | ------------------------------------------------- |
-| `VITE_NEON_AUTH_URL`     | yes (from Sprint 3) | Managed Better Auth URL, ending in `/auth`        |
-| `VITE_NEON_DATA_API_URL` | yes (from Sprint 3) | Data API URL, ending in `/rest/v1`                |
-| `DATABASE_URL`           | tooling only        | direct PostgreSQL URL; **never** a `VITE_` prefix |
+| Variable                 | Required     | Notes                                             |
+| ------------------------ | ------------ | ------------------------------------------------- |
+| `VITE_NEON_AUTH_URL`     | yes          | Managed Better Auth URL, ending in `/auth`        |
+| `VITE_NEON_DATA_API_URL` | yes          | Data API URL, ending in `/rest/v1`                |
+| `DATABASE_URL`           | tooling only | direct PostgreSQL URL; **never** a `VITE_` prefix |
 
 `DATABASE_URL` is read only by migration and type-generation tooling. Vite exposes every `VITE_*`
 variable to the browser bundle, so a `VITE_DATABASE_URL` is rejected by the type generator script and
 must never be created.
 
-No screen imports the Neon client in this migration task, so the UI still runs without a Neon project.
-Sprint 3 will consume `getNeonAuth()`.
+Sprint 3 consumes both entry points through `AuthProvider`. See
+[`AUTHENTICATION.md`](AUTHENTICATION.md) for the session lifecycle and guards.
 
 ---
 
@@ -408,7 +478,8 @@ There is intentionally no public path to `admin`:
 
 To create the first administrator, a trusted operator with the direct database connection must:
 
-1. Create the user through Neon Auth (sign-up once it exists in Sprint 3, or the Neon Console).
+1. Create the user through Neon Auth (the Neon Console or an administrative flow; there is no public
+   sign-up screen).
 2. Read the managed user id (read-only):
    `select id, email from neon_auth.user where email = 'admin@example.com';`
 3. Insert the matching profile:
@@ -443,8 +514,9 @@ The Sprint 2 Supabase baseline (`profiles.id → auth.users`, `auth.uid()`, Supa
 only on a throwaway cluster and was **never applied to a hosted project**. It is preserved verbatim in
 `db/legacy/sprint-2-supabase-baseline/` for auditability and must not be applied to Neon.
 
-The Neon baseline is the rewritten `00001`–`00007` set, followed by the new
-`00008_add_neon_auth_profile_provisioning.sql`. From this point the Neon files are append-only.
+The Neon baseline is the rewritten `00001`–`00007` set, followed by
+`00008_add_neon_auth_profile_provisioning.sql`, `00009_add_cycle_activation.sql` and
+`00010_add_cycle_drafts.sql`. From this point the Neon files are append-only.
 
 **Sprint 2.6 renamed the product to Bachat Book and changed no SQL.** The migration and seed headers still
 say "Bachify" in comments; no identifier, policy or grant references the brand, so the verified chain is
@@ -455,6 +527,13 @@ history, which this project explicitly forbids.
 **production** branch of the hosted **BachatBook** project, after Neon Auth and the Data API were enabled.
 The hosted schema reports 11 tables, RLS on all 11, 31 policies (zero `DELETE` policies) and a working
 `auth.user_id()`.
+
+**Sprint 4 added `00009_add_cycle_activation.sql`** and applied it to the same hosted branch. It adds the
+`activate_cycle(...)` function described in §9.4 and changes no table, policy or grant.
+
+**Sprint 5 added `00010_add_cycle_drafts.sql`** and applied it to the same hosted branch. It adds two
+partial unique indexes and the three draft-workflow functions described in §9.5. It changes no table,
+column, policy or grant, and leaves `activate_cycle(...)` untouched for backward compatibility.
 
 ### Prerequisites
 
@@ -508,15 +587,15 @@ grant usage on schema auth to authenticated, anonymous;
 grant execute on function auth.user_id() to authenticated, anonymous;
 ```
 
-Then apply the eight migrations and `db/seed.sql`. This stub is test-only and is not part of the
+Then apply the ten migrations and `db/seed.sql`. This stub is test-only and is not part of the
 repository or the Neon deployment.
 
 ---
 
 ## 13. Type generation
 
-`src/types/database.types.ts` was regenerated **from the verified local schema** with the official Neon
-generator:
+`src/types/database.types.ts` was last regenerated **from the hosted schema after migration `00010`** with
+the official Neon generator:
 
 ```bash
 npm run generate-types
@@ -534,10 +613,10 @@ npx @neondatabase/neon-js gen-types \
 `@neon/neon-js` does not bundle the CLI; Neon's documentation recommends the package's previous name
 for the generator. The generated file works with the current SDK and is not hand-edited.
 
-**Hosted-generation limitation:** the committed file was generated from a local PostgreSQL 18.4 schema that
-contains the same tables, enums and functions as the migrations. The hosted production branch now exists,
-so regenerate against it (`npm run generate-types` with the hosted `DATABASE_URL`) and compare the diff;
-the surface is expected to match because the same eight migrations were applied.
+**Generation source:** the committed file was last generated against the hosted production branch after
+migration `00010` was applied, so it includes `activate_cycle`, `create_cycle_draft`,
+`set_cycle_chit_order` and `activate_cycle_draft`. Regenerate with `npm run generate-types` after any
+further migration and commit the diff.
 
 ---
 
@@ -633,28 +712,69 @@ the verified baseline; only their header comments still contain the old product 
 object, enum, policy, function, grant or index uses the brand, so this has zero runtime effect and the
 migration chain remains valid.
 
+### Sprint 4 and Sprint 5 hosted verification
+
+`00009_add_cycle_activation.sql` (Sprint 4) and `00010_add_cycle_drafts.sql` (Sprint 5) were applied to the
+hosted production branch and inspected there:
+
+| Check                                                      | Result                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------- |
+| `00009` applied                                            | ✅ Completed without error                                    |
+| `activate_cycle(uuid)` exists                              | ✅ Present; grants restricted to `authenticated`              |
+| `00010` applied                                            | ✅ Completed without error                                    |
+| `create_cycle_draft(...)` exists                           | ✅ `create_cycle_draft(uuid,text,date,numeric,integer)`       |
+| `set_cycle_chit_order(uuid,jsonb)` exists                  | ✅ Present                                                    |
+| `activate_cycle_draft(uuid)` exists                        | ✅ Present                                                    |
+| `cycles_one_active_per_group` index exists                 | ✅ Partial unique index on `group_id` where `status='active'` |
+| `cycles_one_draft_per_group` index exists                  | ✅ Partial unique index on `group_id` where `status='draft'`  |
+| Types regenerated after `00010`                            | ✅ All RPCs present in `src/types/database.types.ts`          |
+| Draft workflow SQL verified in a rollback-only transaction | ✅ 39 assertions passed                                       |
+| Hosted database left unchanged after verification          | ✅ Transaction rolled back; helper functions restored         |
+
+Because a direct `pg` connection has no Data API JWT, the Sprint 5 assertions replaced
+`current_profile_id()` and `is_admin()` **inside the rolled-back transaction only** with GUC-backed mocks.
+The checks covered draft creation and snapshots, duplicate/rejected inputs, reorder persistence, inactive
+members, atomic activation, snapshot immutability, member read-only access and admin-only function calls.
+Real JWT-authenticated invocation through the Data API is still pending.
+
 ### Not verified
 
-- Real Neon Auth sign-up and sign-in flows.
+Sprint 3 implemented the client-side session provider, guards, onboarding and password-reset calls. Sprint
+4 added the Bhishi workflow and cycle-activation function. Sprint 5 added the draft/chit-order workflow.
+The following still require a provisioned hosted account:
+
+- Successful Neon Auth sign-in/sign-out and session persistence.
 - Administrator user and profile provisioning.
 - Hosted JWT forwarding through the Data API and authenticated RLS visibility per role.
-- Password reset and email delivery.
-- Application authentication integration (session provider, guards, login UI wiring).
+- Password reset email delivery and a complete password change.
+- Member onboarding through `ensure_own_profile()` with a real session.
+- Creating a group, adding members, activating a cycle, recording payments/payouts and reading the result
+  back as a linked member.
+- The `activate_cycle()` function against real data under an authenticated admin JWT (it was applied and
+  inspected on the hosted branch, but not invoked end to end).
+- `create_cycle_draft()`, `set_cycle_chit_order()` and `activate_cycle_draft()` through the Data API under a
+  real admin JWT, and draft visibility under a real member JWT. Their SQL logic was verified inside a
+  rollback-only hosted transaction with mocked identity helpers.
 
 ---
 
 ## 16. Known limitations
 
-1. **Hosted URLs are not wired into the app yet.** `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` must
-   be supplied before Sprint 3 can call the API. `.env` is git-ignored.
+1. **Hosted URLs are required but not committed.** `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL`
+   must be supplied in `.env`; the app shows a configuration screen without them. `.env` is git-ignored.
 2. **Authenticated behaviour is unverified.** The hosted schema, RLS enablement, policy count and
-   `auth.user_id()` are confirmed, but JWT forwarding, per-role visibility and Auth flows have not been
-   exercised under a real session.
-3. **No audit-writing triggers.** The table and policies exist, but application code does not yet emit
-   audit rows. That belongs to Sprint 10 (or earlier admin mutations).
-4. **No installment generation.** `installments` and `contribution_obligations` are empty until
-   Sprint 6 generates them atomically.
-5. **Seed has no login accounts.** It cannot demonstrate authenticated RLS without first provisioning a
+   `auth.user_id()` are confirmed, but JWT forwarding, per-role visibility and a successful Auth flow have
+   not been exercised under a real session.
+3. **Audit writing is limited.** `activate_cycle()`, `create_cycle_draft()`, `set_cycle_chit_order()` and
+   `activate_cycle_draft()` append audit rows, but group, member, payment and payout mutations from the
+   browser do not yet emit audit entries.
+4. **Installment generation happens in `activate_cycle()` / `activate_cycle_draft()`.** The rows exist for an
+   activated cycle, but there is no UI to close a cycle and start the next one yet, and no UI to discard a
+   draft.
+5. **Drafts are hidden in the client, not by RLS.** Group members can read every cycle for their group so
+   history stays visible; member screens filter drafts out. A member with direct Data API access could read
+   a draft row, though not change it.
+6. **Seed has no login accounts.** It cannot demonstrate authenticated RLS without first provisioning a
    real Neon Auth user and linking a member (`members.profile_id`).
-6. **Generated types are from the local schema.** Regenerate with `npm run generate-types` against the
-   hosted branch and compare the diff.
+7. **Generated types must be refreshed after schema changes.** They were regenerated from the hosted
+   branch after `00010`; run `npm run generate-types` again after any further migration.

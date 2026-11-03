@@ -1,0 +1,9 @@
+# SQL migrations are append-only PostgreSQL scripts and are not formatted by Prettier.
+db/**/*.sql
+
+# Build output
+dist
+coverage
+
+# Local tooling artifacts
+favicon-data

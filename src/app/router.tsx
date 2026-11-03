@@ -3,16 +3,62 @@ import { lazy } from 'react'
 import { Navigate, createBrowserRouter } from 'react-router-dom'
 import { AdminLayout } from '@/components/layout/admin-layout'
 import { MemberLayout } from '@/components/layout/member-layout'
-import { ProtectedRoutePlaceholder } from '@/components/layout/protected-route-placeholder'
 import { NotFoundPage } from '@/components/feedback/not-found-page'
 import { RouteErrorPage } from '@/components/feedback/route-error-page'
-import { PlaceholderPage } from '@/components/common/placeholder-page'
-import { adminPlaceholders, memberPlaceholders } from '@/app/route-placeholders'
+import { HomeRedirect, RequireRole, RequireSession } from '@/features/auth/components/require-auth'
 import { ROUTES } from '@/lib/constants'
 
 const DashboardPage = lazy(() =>
   import('@/features/dashboard/pages/dashboard-page').then((module) => ({
     default: module.DashboardPage,
+  })),
+)
+
+const MemberDashboardPage = lazy(() =>
+  import('@/features/dashboard/pages/member-dashboard-page').then((module) => ({
+    default: module.MemberDashboardPage,
+  })),
+)
+
+const GroupsPage = lazy(() =>
+  import('@/features/groups/pages/groups-page').then((module) => ({
+    default: module.GroupsPage,
+  })),
+)
+
+const GroupDetailPage = lazy(() =>
+  import('@/features/groups/pages/group-detail-page').then((module) => ({
+    default: module.GroupDetailPage,
+  })),
+)
+
+const MemberGroupsPage = lazy(() =>
+  import('@/features/groups/pages/member-groups-page').then((module) => ({
+    default: module.MemberGroupsPage,
+  })),
+)
+
+const PaymentsPage = lazy(() =>
+  import('@/features/payments/pages/payments-page').then((module) => ({
+    default: module.PaymentsPage,
+  })),
+)
+
+const MemberPaymentsPage = lazy(() =>
+  import('@/features/payments/pages/member-payments-page').then((module) => ({
+    default: module.MemberPaymentsPage,
+  })),
+)
+
+const PayoutsPage = lazy(() =>
+  import('@/features/payouts/pages/payouts-page').then((module) => ({
+    default: module.PayoutsPage,
+  })),
+)
+
+const ProfilePage = lazy(() =>
+  import('@/features/profile/pages/profile-page').then((module) => ({
+    default: module.ProfilePage,
   })),
 )
 
@@ -32,16 +78,28 @@ const ResetPasswordPage = lazy(() =>
   })),
 )
 
+const CompleteProfilePage = lazy(() =>
+  import('@/features/auth/pages/complete-profile-page').then((module) => ({
+    default: module.CompleteProfilePage,
+  })),
+)
+
 export const router = createBrowserRouter([
   {
     errorElement: <RouteErrorPage />,
     children: [
-      { path: ROUTES.home, element: <Navigate to={ROUTES.admin.dashboard} replace /> },
+      { path: ROUTES.home, element: <HomeRedirect /> },
       { path: ROUTES.login, element: <LoginPage /> },
       { path: ROUTES.forgotPassword, element: <ForgotPasswordPage /> },
       { path: ROUTES.resetPassword, element: <ResetPasswordPage /> },
       {
-        element: <ProtectedRoutePlaceholder />,
+        element: <RequireSession />,
+        children: [{ path: ROUTES.completeProfile, element: <CompleteProfilePage /> }],
+      },
+      {
+        // Role guards are navigation aids only. PostgreSQL RLS remains the
+        // security boundary for every row the app reads or writes.
+        element: <RequireRole role="admin" />,
         children: [
           {
             path: '/admin',
@@ -49,99 +107,27 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="dashboard" replace /> },
               { path: 'dashboard', element: <DashboardPage /> },
-              {
-                path: 'groups',
-                element: <PlaceholderPage {...adminPlaceholders.groups} />,
-              },
-              {
-                path: 'members',
-                element: <PlaceholderPage {...adminPlaceholders.members} />,
-              },
-              {
-                path: 'cycles',
-                element: <PlaceholderPage {...adminPlaceholders.cycles} />,
-              },
-              {
-                path: 'collections',
-                element: <PlaceholderPage {...adminPlaceholders.collections} />,
-              },
-              {
-                path: 'payouts',
-                element: <PlaceholderPage {...adminPlaceholders.payouts} />,
-              },
-              {
-                path: 'reports',
-                element: <PlaceholderPage {...adminPlaceholders.reports} />,
-              },
-              {
-                path: 'audit-logs',
-                element: <PlaceholderPage {...adminPlaceholders.auditLogs} />,
-              },
-              {
-                path: 'settings',
-                element: <PlaceholderPage {...adminPlaceholders.settings} />,
-              },
+              { path: 'groups', element: <GroupsPage /> },
+              { path: 'groups/:groupId', element: <GroupDetailPage /> },
+              { path: 'payments', element: <PaymentsPage /> },
+              { path: 'payouts', element: <PayoutsPage /> },
+              { path: 'profile', element: <ProfilePage /> },
             ],
           },
+        ],
+      },
+      {
+        element: <RequireRole role="member" />,
+        children: [
           {
             path: '/member',
             element: <MemberLayout />,
             children: [
               { index: true, element: <Navigate to="dashboard" replace /> },
-              {
-                path: 'dashboard',
-                element: (
-                  <PlaceholderPage
-                    {...memberPlaceholders.dashboard}
-                    dashboardHref={ROUTES.member.dashboard}
-                  />
-                ),
-              },
-              {
-                path: 'groups',
-                element: (
-                  <PlaceholderPage
-                    {...memberPlaceholders.groups}
-                    dashboardHref={ROUTES.member.dashboard}
-                  />
-                ),
-              },
-              {
-                path: 'payments',
-                element: (
-                  <PlaceholderPage
-                    {...memberPlaceholders.payments}
-                    dashboardHref={ROUTES.member.dashboard}
-                  />
-                ),
-              },
-              {
-                path: 'schedule',
-                element: (
-                  <PlaceholderPage
-                    {...memberPlaceholders.schedule}
-                    dashboardHref={ROUTES.member.dashboard}
-                  />
-                ),
-              },
-              {
-                path: 'payouts',
-                element: (
-                  <PlaceholderPage
-                    {...memberPlaceholders.payouts}
-                    dashboardHref={ROUTES.member.dashboard}
-                  />
-                ),
-              },
-              {
-                path: 'profile',
-                element: (
-                  <PlaceholderPage
-                    {...memberPlaceholders.profile}
-                    dashboardHref={ROUTES.member.dashboard}
-                  />
-                ),
-              },
+              { path: 'dashboard', element: <MemberDashboardPage /> },
+              { path: 'groups', element: <MemberGroupsPage /> },
+              { path: 'payments', element: <MemberPaymentsPage /> },
+              { path: 'profile', element: <ProfilePage /> },
             ],
           },
         ],

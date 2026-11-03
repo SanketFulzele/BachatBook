@@ -1,42 +1,20 @@
-import {
-  BarChart3,
-  CalendarDays,
-  CreditCard,
-  HandCoins,
-  LayoutDashboard,
-  RefreshCw,
-  ScrollText,
-  Settings,
-  UserRound,
-  UsersRound,
-  Wallet,
-} from 'lucide-react'
+import { CreditCard, HandCoins, LayoutDashboard, UsersRound, Wallet } from 'lucide-react'
 import type { NavigationItem } from '@/types'
+import { ROUTES } from '@/lib/constants'
 
-/** Admin navigation destinations. Sprint 1 renders Dashboard; the rest are placeholders. */
+/**
+ * Small, task-first navigation. Everything else lives inside a group:
+ * members, chit order and installments are part of the group screen.
+ */
 export const adminNavigation: NavigationItem[] = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { label: 'Groups', href: '/admin/groups', icon: UsersRound, availableInSprint: 4 },
-  { label: 'Members', href: '/admin/members', icon: UserRound, availableInSprint: 4 },
-  { label: 'Cycles', href: '/admin/cycles', icon: RefreshCw, availableInSprint: 5 },
-  { label: 'Collections', href: '/admin/collections', icon: HandCoins, availableInSprint: 7 },
-  { label: 'Payouts', href: '/admin/payouts', icon: Wallet, availableInSprint: 8 },
-  { label: 'Reports', href: '/admin/reports', icon: BarChart3, availableInSprint: 10 },
-  { label: 'Audit Logs', href: '/admin/audit-logs', icon: ScrollText, availableInSprint: 10 },
-  { label: 'Settings', href: '/admin/settings', icon: Settings, availableInSprint: 2 },
+  { label: 'Home', href: ROUTES.admin.dashboard, icon: LayoutDashboard },
+  { label: 'Groups', href: ROUTES.admin.groups, icon: UsersRound },
+  { label: 'Payments', href: ROUTES.admin.payments, icon: HandCoins },
+  { label: 'Payouts', href: ROUTES.admin.payouts, icon: Wallet },
 ]
 
-/** Lightweight member navigation. Every destination is a placeholder in Sprint 1. */
 export const memberNavigation: NavigationItem[] = [
-  { label: 'Dashboard', href: '/member/dashboard', icon: LayoutDashboard, availableInSprint: 9 },
-  { label: 'My Groups', href: '/member/groups', icon: UsersRound, availableInSprint: 4 },
-  { label: 'My Payments', href: '/member/payments', icon: CreditCard, availableInSprint: 7 },
-  {
-    label: 'Monthly Schedule',
-    href: '/member/schedule',
-    icon: CalendarDays,
-    availableInSprint: 6,
-  },
-  { label: 'Payout History', href: '/member/payouts', icon: Wallet, availableInSprint: 8 },
-  { label: 'My Profile', href: '/member/profile', icon: UserRound, availableInSprint: 3 },
+  { label: 'Home', href: ROUTES.member.dashboard, icon: LayoutDashboard },
+  { label: 'My Group', href: ROUTES.member.groups, icon: UsersRound },
+  { label: 'Payments', href: ROUTES.member.payments, icon: CreditCard },
 ]

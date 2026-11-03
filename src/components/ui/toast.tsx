@@ -2,11 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { createPortal } from 'react-dom'
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import {
-  ToastContext,
-  type ToastOptions,
-  type ToastVariant,
-} from '@/components/ui/toast-context'
+import { ToastContext, type ToastOptions, type ToastVariant } from '@/components/ui/toast-context'
 
 interface ToastRecord extends Required<Pick<ToastOptions, 'title' | 'variant' | 'duration'>> {
   id: string

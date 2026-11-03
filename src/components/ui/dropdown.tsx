@@ -71,9 +71,7 @@ export function DropdownMenu({
     if (!open) return
     // Move focus into the menu so keyboard users can navigate immediately.
     const frame = window.requestAnimationFrame(() => {
-      menuRef.current
-        ?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')
-        ?.focus()
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')?.focus()
     })
     return () => window.cancelAnimationFrame(frame)
   }, [open])
@@ -118,8 +116,9 @@ export function DropdownMenu({
             )}
             onKeyDown={(event) => {
               const items = Array.from(
-                menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ??
-                  [],
+                menuRef.current?.querySelectorAll<HTMLElement>(
+                  '[role="menuitem"]:not([disabled])',
+                ) ?? [],
               )
               const currentIndex = items.indexOf(document.activeElement as HTMLElement)
 

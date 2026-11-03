@@ -32,6 +32,18 @@ export const resetPasswordSchema = z
     path: ['confirmPassword'],
   })
 
+export const completeProfileSchema = z.object({
+  fullName: z.string().trim().min(2, 'Enter your full name').max(120, 'Name is too long'),
+  phone: z
+    .string()
+    .trim()
+    .max(30, 'Phone number is too long')
+    .refine((value) => value === '' || /^[0-9+\-()\s]{6,20}$/.test(value), {
+      message: 'Enter a valid phone number',
+    }),
+})
+
 export type LoginFormValues = z.infer<typeof loginSchema>
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>
+export type CompleteProfileFormValues = z.infer<typeof completeProfileSchema>

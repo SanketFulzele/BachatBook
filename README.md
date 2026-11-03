@@ -6,18 +6,20 @@ Bachat Book is a digital Bhishi / rotating savings group management application.
 5–10 people organise monthly contributions, chit order, collections, payouts and financial history in
 one clear place.
 
-> **Current status: Sprint 2 — Database Architecture (completed, migrated to Neon).**
-> The UI is still UI-only: there is no authentication, CRUD or financial calculation yet, and the
-> dashboard shows clearly-labelled sample data. Sprint 2 adds the complete PostgreSQL schema,
-> versioned migrations, Row Level Security, development seed data, generated TypeScript types and a
-> typed Neon client.
+> **Current status: Sprint 5 — Bhishi cycle drafts and manual chit order (implemented; hosted sign-in
+> verification pending).**
+> Neon Auth sessions, profile loading, role-aware route guards, member onboarding and password reset are
+> wired. Admins can create groups, add members, create a cycle draft, arrange the chit order, confirm and
+> activate it, then record payments and payouts. Members can see their activated cycle, own chit position,
+> monthly contribution status, payout recipient and payment history. Dashboards read real database rows
+> through the Neon Data API.
 >
 > The backend target is **Neon PostgreSQL + Neon Managed Better Auth + Neon Data API**. The schema was
-> verified against a real local PostgreSQL 18.4 instance with local stand-ins for the Data API roles.
-> **No hosted Neon project exists yet, so no migration has been applied remotely and no hosted RLS or
-> auth flow has been verified.** See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for sprint
-> history and [`docs/DATABASE_ARCHITECTURE.md`](docs/DATABASE_ARCHITECTURE.md) for the database
-> reference.
+> verified against a real local PostgreSQL 18.4 instance and all ten migrations have been applied to the
+> hosted project. Successful hosted sign-in and authenticated RLS evaluation still need a provisioned test
+> account. See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for sprint history,
+> [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) for the auth design and
+> [`docs/DATABASE_ARCHITECTURE.md`](docs/DATABASE_ARCHITECTURE.md) for the database reference.
 
 ---
 
@@ -53,10 +55,9 @@ React 19 + Vite
 | Build tool   | Vite 8                                                  |
 | Styling      | Tailwind CSS 3.4 + CSS-variable design tokens           |
 | Routing      | React Router 7 (data router, nested layouts)            |
-| Server state | TanStack Query 5 (query keys prepared, no fetchers yet) |
+| Server state | TanStack Query 5 (provider; cache cleared on sign-out)  |
 | Forms        | React Hook Form 7 + Zod 4                               |
 | Icons        | Lucide React                                            |
-| Charts       | Recharts 3                                              |
 | Backend      | `@neon/neon-js` 0.10.2 — Managed Better Auth + Data API |
 | Database     | Neon PostgreSQL; locally verified on PostgreSQL 18.4    |
 | Quality      | ESLint 10, typescript-eslint, Prettier                  |
@@ -73,20 +74,21 @@ cp .env.example .env      # Windows PowerShell: Copy-Item .env.example .env
 npm run dev
 ```
 
-Open <http://localhost:5173>. The root URL redirects to `/admin/dashboard`.
+Open <http://localhost:5173>. Unauthenticated visits redirect to `/login`; after sign-in the app routes to
+the dashboard for the role stored in `public.profiles`.
 
-The UI runs without Neon credentials. `src/lib/neon/client.ts` is lazy: it only throws a clear
-configuration error when a feature actually calls the client (Sprint 3 and later).
+Authentication requires the two `VITE_NEON_*` variables. Without them the app runs but shows a
+configuration screen instead of pretending to be signed in.
 
 ### Environment variables
 
-| Variable                 | Required          | Notes                                                             |
-| ------------------------ | ----------------- | ----------------------------------------------------------------- |
-| `VITE_APP_NAME`          | No                | Defaults in code                                                  |
-| `VITE_APP_ENV`           | No                | e.g. `development`                                                |
-| `VITE_NEON_AUTH_URL`     | Yes from Sprint 3 | Managed Better Auth URL, ending in `/auth`                        |
-| `VITE_NEON_DATA_API_URL` | Yes from Sprint 3 | Data API URL, ending in `/rest/v1`                                |
-| `DATABASE_URL`           | Tooling only      | Direct PostgreSQL URL for migrations/types. **Server-side only.** |
+| Variable                 | Required     | Notes                                                             |
+| ------------------------ | ------------ | ----------------------------------------------------------------- |
+| `VITE_APP_NAME`          | No           | Defaults in code                                                  |
+| `VITE_APP_ENV`           | No           | e.g. `development`                                                |
+| `VITE_NEON_AUTH_URL`     | Yes          | Managed Better Auth URL, ending in `/auth`                        |
+| `VITE_NEON_DATA_API_URL` | Yes          | Data API URL, ending in `/rest/v1`                                |
+| `DATABASE_URL`           | Tooling only | Direct PostgreSQL URL for migrations/types. **Server-side only.** |
 
 `DATABASE_URL` must never be prefixed with `VITE_`, because Vite exposes every `VITE_*` variable to the
 browser bundle. `src/lib/neon/config.ts` validates the two browser-safe URLs and reports problems
@@ -122,6 +124,8 @@ db/
 │   ├── 00006_enable_rls.sql
 │   ├── 00007_create_rls_policies.sql
 │   ├── 00008_add_neon_auth_profile_provisioning.sql
+│   ├── 00009_add_cycle_activation.sql
+│   ├── 00010_add_cycle_drafts.sql
 │   └── README.md                 # per-file history and apply commands
 ├── legacy/sprint-2-supabase-baseline/   # archived, never applied, do not run
 └── seed.sql                      # deterministic development seed
@@ -145,6 +149,15 @@ neon.ts                           # declarative Auth + Data API config (not appl
 - Outstanding balance is always computed as
   `GREATEST(expected_amount - SUM(non_voided_payments), 0)` — never as a stored running total and never
   below zero.
+- A member login is linked by setting `members.profile_id` to a `profiles.id`; a unique partial index
+  allows at most one member record per login. Members without a link cannot see a group.
+- `activate_cycle(...)` runs as one transaction: it validates the chit order, creates the cycle, chit
+  assignments, monthly installments and contribution obligations, marks the group active and writes an
+  audit entry. A half-generated schedule cannot be left behind.
+- The Sprint 5 draft workflow uses three smaller functions: `create_cycle_draft(...)` saves the cycle shell
+  with every active member, `set_cycle_chit_order(...)` reorders a draft with duplicate/missing checks, and
+  `activate_cycle_draft(...)` re-validates and activates atomically. Partial unique indexes allow at most
+  one draft and one active cycle per group.
 
 ### Row Level Security
 
@@ -205,7 +218,7 @@ There is intentionally no public path to `admin`. A signed-in user can create on
 through `ensure_own_profile()`; administrators are provisioned deliberately by an operator with the
 direct connection.
 
-1. Create the account through Neon Auth (sign-up screen in Sprint 3, or the Neon Console).
+1. Create the account through Neon Auth (Neon Console, or another administrative flow).
 2. Read the managed user id (read-only access to the managed schema):
    `select id, email from neon_auth.user where email = 'admin@example.com';`
 3. Insert the application profile with the direct connection:
@@ -230,34 +243,33 @@ it never creates a fake login. Every auth-dependent column is `NULL`.
 
 ## Routes
 
-| Route                | State                                    |
-| -------------------- | ---------------------------------------- |
-| `/`                  | Redirects to `/admin/dashboard`          |
-| `/login`             | Auth UI (validates locally, no session)  |
-| `/forgot-password`   | Auth UI (no email is sent)               |
-| `/reset-password`    | Auth UI (no password is changed)         |
-| `/admin`             | Redirects to `/admin/dashboard`          |
-| `/admin/dashboard`   | **Real page** — admin dashboard preview  |
-| `/admin/groups`      | Clearly-labelled placeholder (Sprint 4)  |
-| `/admin/members`     | Clearly-labelled placeholder (Sprint 4)  |
-| `/admin/cycles`      | Clearly-labelled placeholder (Sprint 5)  |
-| `/admin/collections` | Clearly-labelled placeholder (Sprint 7)  |
-| `/admin/payouts`     | Clearly-labelled placeholder (Sprint 8)  |
-| `/admin/reports`     | Clearly-labelled placeholder (Sprint 10) |
-| `/admin/audit-logs`  | Clearly-labelled placeholder (Sprint 10) |
-| `/admin/settings`    | Clearly-labelled placeholder (Sprint 10) |
-| `/member`            | Redirects to `/member/dashboard`         |
-| `/member/dashboard`  | Clearly-labelled placeholder (Sprint 9)  |
-| `/member/groups`     | Clearly-labelled placeholder (Sprint 4)  |
-| `/member/payments`   | Clearly-labelled placeholder (Sprint 7)  |
-| `/member/schedule`   | Clearly-labelled placeholder (Sprint 6)  |
-| `/member/payouts`    | Clearly-labelled placeholder (Sprint 8)  |
-| `/member/profile`    | Clearly-labelled placeholder (Sprint 3)  |
-| `*`                  | Custom 404 page                          |
+| Route               | Screen                                                                      |
+| ------------------- | --------------------------------------------------------------------------- |
+| `/`                 | Auth-aware redirect to a role dashboard, onboarding or `/login`             |
+| `/login`            | Managed Better Auth sign-in                                                 |
+| `/forgot-password`  | Requests a reset email                                                      |
+| `/reset-password`   | Completes a reset with the emailed `?token=`                                |
+| `/complete-profile` | Member onboarding via `ensure_own_profile()`                                |
+| `/admin`            | Admin-only; redirects to `/admin/dashboard`                                 |
+| `/admin/dashboard`  | Admin home: current installment, recipient, pending payments, quick actions |
+| `/admin/groups`     | Group list and create group                                                 |
+| `/admin/groups/:id` | Members, login linking, draft cycle, chit order, activation, schedule       |
+| `/admin/payments`   | Outstanding contributions and recent payments                               |
+| `/admin/payouts`    | Payout-due installments and recent payouts                                  |
+| `/admin/profile`    | Shared profile screen                                                       |
+| `/member`           | Member-only; redirects to `/member/dashboard`                               |
+| `/member/dashboard` | Member home: contribution status, totals, payout recipient                  |
+| `/member/groups`    | My group, chit order and full installment schedule                          |
+| `/member/payments`  | Pending contributions and personal payment history                          |
+| `/member/profile`   | Shared profile screen                                                       |
+| `*`                 | Custom 404 page                                                             |
 
-`ProtectedRoutePlaceholder` (`src/components/layout/protected-route-placeholder.tsx`) is still an
-intentional pass-through. Role-based protection arrives with real authentication in Sprint 3; RLS is
-already enforced by the database.
+`RequireRole` protects `/admin/*` and `/member/*`. A signed-in user with the wrong role sees an explicit
+access-denied screen. **The guard chooses a screen; it is not the security boundary.** PostgreSQL RLS
+authorizes every row and mutation. See [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md).
+
+Navigation is deliberately small. Mobile uses a bottom tab bar with large touch targets; desktop moves
+the same destinations into the header. The profile menu holds the only link to the profile screen.
 
 ---
 
@@ -271,6 +283,7 @@ already enforced by the database.
 │   └── seed.sql
 ├── docs/
 │   ├── PROJECT_STATUS.md          # Sprint history — read this first
+│   ├── AUTHENTICATION.md          # Sessions, guards, onboarding, password reset
 │   └── DATABASE_ARCHITECTURE.md   # Tables, RLS, migrations, provisioning
 ├── public/
 │   ├── favicon.svg
@@ -279,15 +292,20 @@ already enforced by the database.
 ├── scripts/
 │   └── generate-types.mjs         # Neon type generator wrapper
 ├── src/
-│   ├── app/                       # App shell, providers, router, placeholder config
+│   ├── app/                       # App shell, providers, router
 │   ├── components/
 │   │   ├── ui/                    # Reusable design-system primitives
-│   │   ├── common/                # Logo, page header, placeholder page
-│   │   ├── layout/                # Admin & member shells, nav config, profile menu
+│   │   ├── common/                # Logo, page header
+│   │   ├── layout/                # Shared AppShell, nav config, profile menu
 │   │   └── feedback/              # Loading, error and 404 states
 │   ├── features/
-│   │   ├── auth/                  # components / pages / schemas / types
-│   │   └── dashboard/             # components / data / pages / types
+│   │   ├── auth/                  # provider, guards, api, pages, schemas, types
+│   │   ├── bhishi/                # shared data layer, dialogs, cards, status UI
+│   │   ├── dashboard/             # admin and member home pages
+│   │   ├── groups/                # admin groups, group detail, member group
+│   │   ├── payments/              # admin payments, member payments
+│   │   ├── payouts/               # admin payouts
+│   │   └── profile/               # shared profile screen
 │   ├── hooks/
 │   ├── lib/
 │   │   ├── neon/                  # config, client, auth, data-api entry points
@@ -323,30 +341,37 @@ The `@/*` path alias maps to `src/*` in both TypeScript and Vite.
 - **Currency:** INR (`₹`), locale `en-IN`, timezone `Asia/Kolkata`. `formatCurrency(125000)` returns
   `₹1,25,000`; `formatNumber(1250000)` returns `12,50,000`.
 
-### Sample data
+### Data flow
 
-All dashboard numbers come from `src/features/dashboard/data/sample-data.ts`, which exports
-`isSampleData: true` and carries a development-only header comment. Delete or replace that single file
-when real queries land. No component fetches or calculates financial values yet; the query-key registry
-in `src/lib/query-keys.ts` is ready for Sprint 4+.
+All screens read from one compact snapshot query (`queryKeys.bhishi.snapshot(profileId)`), which fetches
+the eleven tables in parallel through the Neon Data API. RLS filters the rows before they arrive.
+
+`src/features/bhishi/lib/derive.ts` builds the small view models used by the screens:
+
+- payment status is derived from non-voided payments against each obligation;
+- installment status and collected totals are derived the same way;
+- the current recipient and the next installment are selected for the home screens;
+- pending payment and payout choices are flattened for the two record dialogs.
+
+Mutations insert a group, a member, a payment or a payout, save a cycle draft's chit order, create a draft
+or call `activate_cycle_draft`. Every successful mutation invalidates the snapshot key. No financial value
+is stored as a running total in the browser.
 
 ---
 
 ## Sprint roadmap
 
-| Sprint | Scope                              | Status      |
-| ------ | ---------------------------------- | ----------- |
-| 1      | Project foundation & design system | Completed   |
-| 2      | Database architecture (Neon)       | Completed   |
-| 3      | Authentication & security          | Not started |
-| 4      | Group & member management          | Not started |
-| 5      | Cycle & chit management            | Not started |
-| 6      | Automatic installment generation   | Not started |
-| 7      | Payment management                 | Not started |
-| 8      | Payout management                  | Not started |
-| 9      | Dashboards                         | Not started |
-| 10     | Reports & audit logs               | Not started |
-| 11     | Testing & deployment               | Not started |
+| Sprint | Scope                                                                                                     | Status                                    |
+| ------ | --------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 1      | Project foundation & design system                                                                        | Completed                                 |
+| 2      | Database architecture (Neon)                                                                              | Completed                                 |
+| 3      | Authentication & security                                                                                 | In progress (hosted verification pending) |
+| 4      | Simple Bhishi workflow: groups, members, chit order, installments, payments, payouts, dashboards, profile | Implemented (hosted verification pending) |
+| 5      | Cycle drafts, manual chit order, confirmation activation and schedule viewing                             | Implemented (hosted verification pending) |
+| 6      | Testing & deployment                                                                                      | Not started                               |
+
+Reports, exports, audit-log UI, advanced analytics, settings and broad filters are deliberately **not**
+planned. They are not required to run a small Bhishi group and would make the app harder to use.
 
 ---
 
@@ -390,20 +415,78 @@ in `src/lib/query-keys.ts` is ready for Sprint 4+.
 
 **Not verified:** a hosted Neon project, hosted Auth/Data API endpoints, JWT forwarding through the
 Data API, hosted RLS policy evaluation, email delivery and real browser sign-in. No remote migration or
-`neon deploy` was run.
+`neon deploy` was run. _(The hosted project, migrations and endpoint reachability were resolved by
+Sprint 2.7; authenticated behaviour remained pending entering Sprint 3.)_
+
+### Sprint 3 (2026-11-03)
+
+- `npm run typecheck` — passed, 0 errors.
+- `npm run lint` — passed, 0 errors / 0 warnings.
+- `npm run build` — passed; 3,006 modules, no chunk-size warning.
+- Unauthenticated requests to `/`, `/admin`, `/admin/dashboard`, `/member/dashboard` and
+  `/complete-profile` redirect to `/login`; no console app errors.
+- Hosted `GET /get-session` returns 200 with body `null` while signed out; CORS accepts the dev origin.
+- Invalid credentials return hosted 401 `INVALID_EMAIL_OR_PASSWORD` and the UI shows
+  “Could not sign in / Invalid email or password”.
+- `/reset-password` without a token shows the incomplete-link state; a bogus token renders the form and
+  submission returns the hosted “Invalid or expired session token” error.
+- `/forgot-password` renders and submits through Managed Better Auth.
+
+**Not verified:** successful sign-in/sign-out, session persistence, profile loading, onboarding,
+role-based dashboards, password-reset email delivery, hosted JWT forwarding and authenticated RLS. These
+need a provisioned test account.
+
+### Sprint 4 (2026-11-03)
+
+- `npm run typecheck` — passed, 0 errors.
+- `npm run lint` — passed, 0 errors / 0 warnings.
+- `npm run build` — passed; lazily split page chunks, no chunk-size warning.
+- Prettier — all source, docs and config files formatted.
+- `npm run generate-types` — regenerated from the hosted schema after `00009`; includes `activate_cycle`.
+- `00009_add_cycle_activation.sql` — applied to the hosted Neon database; the `activate_cycle` function was
+  verified, and login-to-member uniqueness remains enforced by the existing `members_profile_id_key` index.
+- Admin navigation reduced to Home, Groups, Payments and Payouts; member navigation to Home, My Group
+  and Payments.
+- Placeholder pages, sample-data dashboard components and the Recharts dependency removed.
+
+**Not verified:** hosted end-to-end flows. Creating a group, adding members, starting a cycle, recording a
+payment/payout and reading them back as a member still need a provisioned test account. The seed contains
+no auth users, so no logged-in demo member exists until an account is linked through `members.profile_id`.
+
+### Sprint 5 (2026-11-03)
+
+- `npm run typecheck` — passed, 0 errors.
+- `npm run lint` — passed, 0 errors / 0 warnings.
+- `npm run build` — passed; 2,452 modules, no chunk-size warning.
+- Prettier — all source, docs and config files formatted.
+- `00010_add_cycle_drafts.sql` — applied to the hosted Neon database; both partial unique indexes and all
+  three RPCs (`create_cycle_draft`, `set_cycle_chit_order`, `activate_cycle_draft`) exist.
+- `npm run generate-types` — regenerated from the hosted schema after `00010`; includes all three RPCs.
+- 39 SQL assertions passed inside a rollback-only hosted transaction with mocked identity helpers: draft
+  validation, reorder persistence, duplicate/missing/out-of-range rejection, inactive-member rejection,
+  atomic activation, snapshot immutability and member read-only behaviour.
+- Member "current cycle" views exclude drafts; the admin group screen shows the draft and its editor.
+
+**Not verified:** authenticated invocation of the new RPCs through the hosted Data API, and the mobile
+browser walkthrough of the new dialogs. These need a provisioned admin/member test account.
 
 ---
 
 ## Notes & limitations
 
-- Authentication is UI only: submitting a form validates input and shows an honest “not connected until
-  Sprint 3” message. No credential is stored, transmitted or logged.
-- No hosted Neon project is linked yet. Migrations have not been applied remotely, and `neon.ts` has not
-  been deployed.
-- `database.types.ts` was generated from the locally verified schema; regenerate after the first hosted
-  migration with `npm run generate-types`.
+- Authentication is implemented against Managed Better Auth, but successful hosted sign-in and
+  authenticated RLS have **not** been verified without a provisioned test account.
+- The admin and member screens are real and read the database, but they have not yet been exercised
+  end-to-end against the hosted project for the same reason.
 - The seed has no auth users/profiles, so it cannot demonstrate a logged-in member until an account is
-  provisioned and linked through `members.profile_id`.
-- Sign-out in the profile menu is a UI-only action that returns to `/login`.
+  provisioned and linked through `members.profile_id`. The group detail screen includes an admin-only
+  “Link login” action for that link.
+- The dummy `aashish@bachatbook.app` administrator is not confirmed linked to `public.profiles`;
+  provisioning remains a trusted direct-SQL task. Do not create a second administrator account.
+- Route guards are navigation aids. PostgreSQL RLS remains the only authorization boundary.
+- `database.types.ts` was regenerated from the hosted schema after `00010`; regenerate again after any
+  further schema change with `npm run generate-types`.
+- There is no UI yet to discard a cycle draft or close an active cycle, so a group cannot start its next
+  cycle from the app. Use the trusted direct-SQL process until a later sprint adds these controls.
 - `npm audit` reports 12 moderate advisories in the ESLint 10 toolchain (development dependencies only);
   none affect the shipped bundle. Do not run `npm audit fix --force`.

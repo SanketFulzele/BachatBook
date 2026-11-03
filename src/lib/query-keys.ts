@@ -16,6 +16,11 @@ export const queryKeys = {
     all: ['auth'] as const,
     session: () => [...queryKeys.auth.all, 'session'] as const,
   },
+  bhishi: {
+    all: ['bhishi'] as const,
+    /** One compact snapshot for the whole small-group app. */
+    snapshot: (profileId: string) => [...queryKeys.bhishi.all, 'snapshot', profileId] as const,
+  },
   profiles: {
     all: ['profiles'] as const,
     detail: (profileId: string) => [...queryKeys.profiles.all, 'detail', profileId] as const,

@@ -1,16 +1,19 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, ArrowRight, Check, LockKeyhole } from 'lucide-react'
 import { AuthLayout } from '@/features/auth/components/auth-layout'
 import { PasswordInput } from '@/features/auth/components/password-input'
+import { useAuth } from '@/features/auth/components/auth-context'
+import { resetPasswordWithToken } from '@/features/auth/api/auth-api'
 import {
   resetPasswordSchema,
   type ResetPasswordFormValues,
 } from '@/features/auth/schemas/auth.schemas'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast-context'
 import { useDocumentTitle } from '@/hooks/use-document-title'
@@ -26,7 +29,16 @@ const passwordRules = [
 
 export function ResetPasswordPage() {
   useDocumentTitle('Reset password')
+  const auth = useAuth()
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
+
+  // Managed Better Auth appends the reset token as ?token=… to the
+  // redirectTo URL configured in the project's auth settings.
+  const token = searchParams.get('token')?.trim() ?? ''
+
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
   const {
@@ -40,25 +52,111 @@ export function ResetPasswordPage() {
   })
 
   const passwordValue = useWatch({ control, name: 'password' })
+  const isUnconfigured = auth.phase === 'unconfigured'
 
-  const onSubmit = () => {
+  const onSubmit = async (values: ResetPasswordFormValues) => {
+    if (!token) return
+
+    setFormError(null)
+    setIsSubmitting(true)
+
+    const result = await resetPasswordWithToken(values.password, token)
+
+    setIsSubmitting(false)
+
+    if (result.error) {
+      setFormError(result.error)
+      return
+    }
+
     setSubmitted(true)
     toast({
-      title: 'Password fields validated',
-      description: 'Password updates are enabled in Sprint 3. No credentials were stored.',
-      variant: 'info',
+      title: 'Password updated',
+      description: 'Sign in with your new password.',
+      variant: 'success',
     })
+  }
+
+  const backLink = (
+    <Link
+      to={ROUTES.login}
+      className="mb-7 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      Back to sign in
+    </Link>
+  )
+
+  if (!token) {
+    return (
+      <AuthLayout>
+        {backLink}
+
+        <div className="mb-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            Reset link
+          </p>
+          <h2 className="mt-2 text-[26px] font-bold tracking-tight text-secondary">
+            This reset link is incomplete
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            The link is missing its reset token, or it has already been used. Reset links are
+            single-use and expire.
+          </p>
+        </div>
+
+        <Alert variant="warning" title="Request a fresh link">
+          Password reset links can only be used once. Request a new email and open the link from
+          that message.
+        </Alert>
+
+        <Link
+          to={ROUTES.forgotPassword}
+          className={buttonVariants({ size: 'lg', className: 'mt-6 w-full' })}
+        >
+          Request a new reset link
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </AuthLayout>
+    )
+  }
+
+  if (submitted) {
+    return (
+      <AuthLayout>
+        {backLink}
+
+        <div className="mb-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            Password updated
+          </p>
+          <h2 className="mt-2 text-[26px] font-bold tracking-tight text-secondary">
+            Your password has been reset
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Sign in with your new password to continue.
+          </p>
+        </div>
+
+        <Alert variant="success" title="All set">
+          This reset link can no longer be used. If you did not make this change, contact your group
+          administrator immediately.
+        </Alert>
+
+        <Link
+          to={ROUTES.login}
+          className={buttonVariants({ size: 'lg', className: 'mt-6 w-full' })}
+        >
+          Go to sign in
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </AuthLayout>
+    )
   }
 
   return (
     <AuthLayout>
-      <Link
-        to={ROUTES.login}
-        className="mb-7 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Back to sign in
-      </Link>
+      {backLink}
 
       <div className="mb-7">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
@@ -72,14 +170,17 @@ export function ResetPasswordPage() {
         </p>
       </div>
 
-      <Alert variant="info" title="UI preview — this is not a live reset link" className="mb-6">
-        Reset links will be issued and verified by Neon Auth in Sprint 3. Submitting this form does
-        not change any password.
-      </Alert>
+      {isUnconfigured ? (
+        <Alert variant="error" title="Authentication is not configured" className="mb-6">
+          Add <code className="font-mono">VITE_NEON_AUTH_URL</code> and{' '}
+          <code className="font-mono">VITE_NEON_DATA_API_URL</code> to <code>.env</code>, then
+          restart the dev server.
+        </Alert>
+      ) : null}
 
-      {submitted ? (
-        <Alert variant="success" title="Both password fields are valid" className="mb-6">
-          The reset flow is ready for backend wiring in Sprint 3. Nothing was saved.
+      {formError ? (
+        <Alert variant="error" title="Could not reset the password" className="mb-6">
+          {formError}
         </Alert>
       ) : null}
 
@@ -153,7 +254,13 @@ export function ResetPasswordPage() {
           ) : null}
         </div>
 
-        <Button type="submit" size="lg" className="w-full">
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          isLoading={isSubmitting}
+          disabled={isUnconfigured}
+        >
           Reset password
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Button>

@@ -4,6 +4,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, ArrowRight, Mail } from 'lucide-react'
 import { AuthLayout } from '@/features/auth/components/auth-layout'
+import { useAuth } from '@/features/auth/components/auth-context'
+import { requestPasswordResetEmail } from '@/features/auth/api/auth-api'
 import {
   forgotPasswordSchema,
   type ForgotPasswordFormValues,
@@ -18,8 +20,12 @@ import { ROUTES } from '@/lib/constants'
 
 export function ForgotPasswordPage() {
   useDocumentTitle('Forgot password')
+  const auth = useAuth()
   const { toast } = useToast()
+
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const {
     register,
@@ -30,12 +36,29 @@ export function ForgotPasswordPage() {
     defaultValues: { email: '' },
   })
 
-  const onSubmit = (values: ForgotPasswordFormValues) => {
-    setSubmittedEmail(values.email)
+  const isUnconfigured = auth.phase === 'unconfigured'
+
+  const onSubmit = async (values: ForgotPasswordFormValues) => {
+    setFormError(null)
+    setIsSubmitting(true)
+
+    const result = await requestPasswordResetEmail(
+      values.email.trim(),
+      `${window.location.origin}${ROUTES.resetPassword}`,
+    )
+
+    setIsSubmitting(false)
+
+    if (result.error) {
+      setFormError(result.error)
+      return
+    }
+
+    setSubmittedEmail(values.email.trim())
     toast({
-      title: 'Email validated',
-      description: 'Reset-email delivery is enabled in Sprint 3. No message was sent.',
-      variant: 'info',
+      title: 'Reset email requested',
+      description: 'If an account exists for that address, a reset link is on its way.',
+      variant: 'success',
     })
   }
 
@@ -57,18 +80,29 @@ export function ForgotPasswordPage() {
           Forgot your password?
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Enter the email linked to your Bachat Book account and we&apos;ll help you get back in.
+          Enter the email linked to your Bachat Book account and we&apos;ll send you a reset link.
         </p>
       </div>
 
-      <Alert variant="info" title="UI preview — no email is sent" className="mb-6">
-        Password recovery will be connected to Neon Auth in Sprint 3.
-      </Alert>
+      {isUnconfigured ? (
+        <Alert variant="error" title="Authentication is not configured" className="mb-6">
+          Add <code className="font-mono">VITE_NEON_AUTH_URL</code> and{' '}
+          <code className="font-mono">VITE_NEON_DATA_API_URL</code> to <code>.env</code>, then
+          restart the dev server.
+        </Alert>
+      ) : null}
 
       {submittedEmail ? (
-        <Alert variant="success" title="Your email passed validation" className="mb-6">
-          <span className="break-all font-medium">{submittedEmail}</span> looks valid. In Sprint 3,
-          a secure reset link will be delivered to this address.
+        <Alert variant="success" title="Check your email" className="mb-6">
+          If an account exists for <span className="break-all font-medium">{submittedEmail}</span>,
+          a reset link has been sent. The link is single-use and expires. Check your spam folder if
+          it does not arrive.
+        </Alert>
+      ) : null}
+
+      {formError ? (
+        <Alert variant="error" title="Could not send the email" className="mb-6">
+          {formError}
         </Alert>
       ) : null}
 
@@ -94,7 +128,13 @@ export function ForgotPasswordPage() {
           ) : null}
         </div>
 
-        <Button type="submit" size="lg" className="w-full">
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          isLoading={isSubmitting}
+          disabled={isUnconfigured}
+        >
           Send reset link
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Button>

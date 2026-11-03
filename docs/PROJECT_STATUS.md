@@ -4,26 +4,29 @@
 > Update it at the end of every sprint. Never delete previous sprint history, never mark unfinished work
 > as done, and never record secret values.
 
-Last updated: **2026-11-03 (hosted Neon project provisioned and migrations applied; Sprint 3 not started,
-awaiting review)**
+Last updated: **2026-11-03 (Sprint 5 cycle drafts and manual chit order implemented; static checks passed,
+hosted authenticated flows still pending credentials)**
 
 ---
 
 ## A. Project Information
 
-| Item                | Value                                                                                                                                                                                                                                                                                                           |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Project name        | **Bachat Book**                                                                                                                                                                                                                                                                                                 |
-| Tagline             | Together We Save. Simply.                                                                                                                                                                                                                                                                                       |
-| Purpose             | Digital Bhishi / rotating savings group management for small groups (5–10 members): contributions, cycles, collections, payouts and financial history.                                                                                                                                                          |
-| Repository          | `D:\Sanket\GitSanket\BachatBook`                                                                                                                                                                                                                                                                                |
-| Current sprint      | **Sprint 2.7 — Hosted Neon provisioning** (database provisioned and verified; awaiting Sprint 3 approval)                                                                                                                                                                                                       |
-| Overall status      | Sprint 1 UI is complete. Sprint 2 produced a verified PostgreSQL schema; Sprint 2.5 migrated it to Neon PostgreSQL + Managed Better Auth + Data API; Sprint 2.6 renamed the product to Bachat Book; Sprint 2.7 provisioned the hosted Neon project and applied all migrations. No screen uses the database yet. |
-| Sprint 1 scope rule | UI, layout, routing and documentation only. No database, auth, CRUD or financial logic.                                                                                                                                                                                                                         |
-| Sprint 2 scope rule | Database schema, migrations, constraints, indexes, RLS, seed data, types and documentation only. No auth wiring, CRUD, generation or calculations.                                                                                                                                                              |
-| Sprint 2.5 rule     | Replace Supabase with Neon, adapt identity/RLS and regenerate types. No new features, no Sprint 3 auth work, no remote provisioning without approval.                                                                                                                                                           |
-| Sprint 2.6 rule     | Cosmetic rebrand only. No schema, policy, logic or behaviour changes; SQL baselines untouched.                                                                                                                                                                                                                  |
-| Sprint 2.7 rule     | Provision the hosted Neon project (Auth + Data API), apply migrations, confirm RLS. No application auth wiring, no CRUD, no SQL changes.                                                                                                                                                                        |
+| Item                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project name        | **Bachat Book**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Tagline             | Together We Save. Simply.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Purpose             | Digital Bhishi / rotating savings group management for small groups (5–10 members): contributions, cycles, collections, payouts and financial history.                                                                                                                                                                                                                                                                                                                                                                |
+| Repository          | `D:\Sanket\GitSanket\BachatBook`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Current sprint      | **Sprint 5 — Bhishi Cycle & Chit Order Management** (implemented; authenticated hosted verification pending test credentials)                                                                                                                                                                                                                                                                                                                                                                                         |
+| Overall status      | Sprints 1–2.7 delivered the UI, verified schema, Neon migration and hosted database. Sprint 3 wired real Neon Auth sessions, profile loading, role-aware route guards, member onboarding and password reset. Sprint 4 added the small-group Bhishi workflow. Sprint 5 adds a reviewable cycle-draft workflow: create a draft with snapshots, arrange the chit order manually, confirm, and activate atomically. Authenticated hosted RLS and successful sign-in remain unverified without a provisioned test account. |
+| Sprint 1 scope rule | UI, layout, routing and documentation only. No database, auth, CRUD or financial logic.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Sprint 2 scope rule | Database schema, migrations, constraints, indexes, RLS, seed data, types and documentation only. No auth wiring, CRUD, generation or calculations.                                                                                                                                                                                                                                                                                                                                                                    |
+| Sprint 2.5 rule     | Replace Supabase with Neon, adapt identity/RLS and regenerate types. No new features, no Sprint 3 auth work, no remote provisioning without approval.                                                                                                                                                                                                                                                                                                                                                                 |
+| Sprint 2.6 rule     | Cosmetic rebrand only. No schema, policy, logic or behaviour changes; SQL baselines untouched.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Sprint 2.7 rule     | Provision the hosted Neon project (Auth + Data API), apply migrations, confirm RLS. No application auth wiring, no CRUD, no SQL changes.                                                                                                                                                                                                                                                                                                                                                                              |
+| Sprint 3 rule       | Real Neon Auth authentication, session state, profile loading, role guards, onboarding and password reset only. No CRUD, no financial features, no RLS bypass, no client-trusted roles.                                                                                                                                                                                                                                                                                                                               |
+| Sprint 4 rule       | One small, mobile-first Bhishi workflow only. No reports, charts, exports, extra settings or advanced filters. No hard delete of financial records, no client-trusted roles, no DB credentials in the browser.                                                                                                                                                                                                                                                                                                        |
+| Sprint 5 rule       | Cycle drafts, manual chit ordering, confirmation activation and schedule viewing only. No automatic installment generation beyond the existing activation behaviour, no payment/payout recording changes, no reports, analytics, notifications or calendars.                                                                                                                                                                                                                                                          |
 
 ### Technology stack (installed)
 
@@ -34,10 +37,9 @@ awaiting review)**
 | Build               | `vite@8.3.5`, `@vitejs/plugin-react@6.1.2`                                                 |
 | Styling             | `tailwindcss@3.4.19`, `postcss@8.5.32`, `autoprefixer@10.6.2`                              |
 | Routing             | `react-router-dom@7.18.5`                                                                  |
-| Server state        | `@tanstack/react-query@5.105.1` (provider only)                                            |
+| Server state        | `@tanstack/react-query@5.105.1` (provider; cache cleared on sign-out)                      |
 | Forms / validation  | `react-hook-form@7.91.0`, `@hookform/resolvers@7.0.1`, `zod@4.6.7`                         |
 | Icons               | `lucide-react@1.66.0`                                                                      |
-| Charts              | `recharts@3.10.1`                                                                          |
 | Class helpers       | `clsx@2.1.1`, `tailwind-merge@2.6.1`                                                       |
 | Lint / format       | `eslint@10.14.0`, `typescript-eslint@8.72.1`, `prettier@3.9.10`                            |
 | Backend             | `@neon/neon-js@0.10.2` (Managed Better Auth + Data API); hosted project provisioned        |
@@ -48,24 +50,25 @@ awaiting review)**
 
 ## B. Sprint Progress
 
-| #   | Sprint                             | Status        | Notes                                                                                                                                                                    |
-| --- | ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Project Foundation & Design System | **Completed** | UI, layouts, routing, auth screens, dashboard preview, docs.                                                                                                             |
-| 2   | Supabase & Database Architecture   | **Completed** | Historical baseline: schema, 7 migrations, RLS, seed, types, docs. Verified locally; never pushed to Supabase.                                                           |
-| 2.5 | Supabase → Neon migration          | **Completed** | Neon baseline migrations, `auth.user_id()` identity mapping, RLS adaptation, types, `neon.ts`, docs. Verified locally at the time; hosted provisioning completed in 2.7. |
-| 2.6 | Rebrand: Bachify → Bachat Book     | **Completed** | Name, package, icon asset, UI copy, PWA manifest. SQL untouched by design.                                                                                               |
-| 2.7 | Hosted Neon provisioning           | **Completed** | `BachatBook` project, Auth + Data API enabled, 8 migrations applied, RLS and `auth.user_id()` verified on the production branch.                                         |
-| 3   | Authentication & Security          | Not Started   | Real sessions, protected routes, password reset.                                                                                                                         |
-| 4   | Group & Member Management          | Not Started   | CRUD for groups + members.                                                                                                                                               |
-| 5   | Cycle & Chit Management            | Not Started   | Cycle rules and chit order.                                                                                                                                              |
-| 6   | Automatic Installment Generation   | Not Started   | Per-cycle installment rows.                                                                                                                                              |
-| 7   | Payment Management                 | Not Started   | Contribution recording and status.                                                                                                                                       |
-| 8   | Payout Management                  | Not Started   | Payout recording tied to collections.                                                                                                                                    |
-| 9   | Dashboards                         | Not Started   | Replace sample data with live queries.                                                                                                                                   |
-| 10  | Reports & Audit Logs               | Not Started   | Exports, audit trail, settings.                                                                                                                                          |
-| 11  | Testing & Deployment               | Not Started   | Automated tests, CI, production deploy.                                                                                                                                  |
+| #   | Sprint                             | Status          | Notes                                                                                                                                                                    |
+| --- | ---------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Project Foundation & Design System | **Completed**   | UI, layouts, routing, auth screens, dashboard preview, docs.                                                                                                             |
+| 2   | Supabase & Database Architecture   | **Completed**   | Historical baseline: schema, 7 migrations, RLS, seed, types, docs. Verified locally; never pushed to Supabase.                                                           |
+| 2.5 | Supabase → Neon migration          | **Completed**   | Neon baseline migrations, `auth.user_id()` identity mapping, RLS adaptation, types, `neon.ts`, docs. Verified locally at the time; hosted provisioning completed in 2.7. |
+| 2.6 | Rebrand: Bachify → Bachat Book     | **Completed**   | Name, package, icon asset, UI copy, PWA manifest. SQL untouched by design.                                                                                               |
+| 2.7 | Hosted Neon provisioning           | **Completed**   | `BachatBook` project, Auth + Data API enabled, 8 migrations applied, RLS and `auth.user_id()` verified on the production branch.                                         |
+| 3   | Authentication & Security          | **In Progress** | Real sessions, guards, onboarding, password reset implemented; authenticated hosted verification pending.                                                                |
+| 4   | Simple Bhishi Workflow             | **Implemented** | Groups, members, chit order, installments, payments, payouts, live dashboards and profile.                                                                               |
+| 5   | Bhishi Cycle & Chit Order          | **Implemented** | Draft cycle creation with snapshots, manual chit ordering, confirmation activation and schedule viewing.                                                                 |
+| —   | Cycle & Chit Management            | Delivered       | Basic activation shipped in Sprint 4; the reviewable draft/chit-order workflow ships in Sprint 5.                                                                        |
+| —   | Automatic Installment Generation   | Merged          | Folded into `activate_cycle()` / `activate_cycle_draft()`; one monthly installment per chit number.                                                                      |
+| —   | Payment Management                 | Merged          | Folded into Sprint 4; status derived from non-voided payments.                                                                                                           |
+| —   | Payout Management                  | Merged          | Folded into Sprint 4; one payout per installment, recipient enforced by FK.                                                                                              |
+| —   | Dashboards                         | Merged          | Folded into Sprint 4; admin and member homes read live data.                                                                                                             |
+| —   | Reports & Audit Logs               | Dropped         | Deliberately out of scope; the app is kept small.                                                                                                                        |
+| 6   | Testing & Deployment               | Not Started     | Automated tests, CI, production deploy.                                                                                                                                  |
 
-Legend: Not Started · In Progress · Completed · Blocked.
+Legend: Not Started · In Progress · Completed · Blocked · Merged · Dropped.
 
 ---
 
@@ -371,21 +374,295 @@ set applied remotely are the same ones that were validated locally.
 
 ---
 
+### Sprint 3 — Authentication & Security (2026-11-03)
+
+Sprint 3 replaces the UI-only auth preview with real Managed Better Auth sessions and role-aware
+navigation. It adds no CRUD or financial features, creates no administrator account and changes no SQL
+migration, RLS policy or grant.
+
+#### 1. Auth client and data access
+
+- Reuses the single shared `createClient<Database>({ auth, dataApi })` client from Sprint 2.5; there is
+  still one auth/JWT state for both Auth and the Data API.
+- `src/features/auth/api/auth-api.ts` wraps the calls the UI needs:
+  - `fetchOwnProfile(authUserId)` → `profiles` selected with `.eq('auth_user_id', …).maybeSingle()`.
+  - `createOwnProfile()` → `rpc('ensure_own_profile', …)`.
+  - `requestPasswordResetEmail()` → `auth.requestPasswordReset({ email, redirectTo })`.
+  - `resetPasswordWithToken()` → `auth.resetPassword({ newPassword, token })`.
+  - Error normalization for rate limits, 5xx responses, Data API permission errors and expired JWTs.
+- No role, profile id or `auth_user_id` is ever written from browser input. `DATABASE_URL` remains
+  server-side only.
+
+#### 2. Session provider and state machine
+
+`src/features/auth/components/auth-provider.tsx` is mounted once in `src/app/providers.tsx`.
+
+| Phase             | Meaning                                                         |
+| ----------------- | --------------------------------------------------------------- |
+| `loading`         | Restoring the Neon Auth session and/or loading the profile      |
+| `unauthenticated` | No Neon Auth session                                            |
+| `needs-profile`   | Valid session, but no `public.profiles` row yet                 |
+| `authenticated`   | Valid session plus an active profile; role read from `profiles` |
+| `inactive`        | Valid session, but the profile has `is_active = false`          |
+| `unconfigured`    | Browser-safe Neon URLs are missing or invalid                   |
+| `error`           | Session or profile request failed for another reason            |
+
+- Subscribes to `auth.useSession` (nanostore atom) so cross-tab sign-in/sign-out, focus refreshes and
+  token expiry all update the UI without a full reload.
+- Ignores repeated session notifications for the same identity so token refreshes do not re-query the
+  profile.
+- Clears the TanStack Query cache on sign-out or session loss so a different account cannot read the
+  previous user's cached data.
+- In-flight profile requests are invalidated by a request counter, preventing a slow response from
+  overwriting a newer sign-in/sign-out.
+- Expired Data API JWTs transition the app to `unauthenticated` with an actionable message instead of a
+  blank or broken screen.
+
+#### 3. Route guards and redirects
+
+`src/app/router.tsx` now uses:
+
+| Guard            | Routes                  | Behaviour                                                                                               |
+| ---------------- | ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| `HomeRedirect`   | `/`                     | Role dashboard, `/complete-profile`, or `/login` based on auth phase                                    |
+| `RequireRole`    | `/admin/*`, `/member/*` | Redirects unauthenticated users to `/login` with a `from` path; renders a 403 screen for the wrong role |
+| `RequireSession` | `/complete-profile`     | Requires a session; sends completed users to their dashboard                                            |
+
+- `/admin` and `/member` index routes still redirect to their dashboards.
+- A signed-in member opening an admin URL sees an explicit “You do not have access to this area” screen
+  rather than being silently bounced.
+- Guards are navigation aids only. Every row and mutation is still authorized by PostgreSQL RLS.
+- `protected-route-placeholder.tsx` was deleted.
+
+#### 4. Sign-in, sign-out and profile menu
+
+- `login-page.tsx` calls `auth.signIn.email()` with email, password and `rememberMe`.
+- Redirects are driven by render-phase auth state, not by the immediate sign-in result, so a slow profile
+  fetch cannot bounce the user to the wrong portal.
+- A valid session with no profile goes to `/complete-profile`; a completed user returns to the originally
+  requested same-role path when present.
+- `profile-menu.tsx` reads the real session profile and calls `auth.signOut()`. Hardcoded preview names,
+  email addresses and cross-portal “preview” links were removed.
+- Admin and member layouts now read the active identity from the provider instead of shipping sample
+  identities.
+
+#### 5. Member onboarding
+
+- `complete-profile-page.tsx` collects full name and optional phone.
+- Submitting calls `ensure_own_profile(profile_full_name, profile_phone, profile_email)`.
+- Migration `00008` already derives the identity from `auth.user_id()`, forces `role = 'member'` and is
+  idempotent; no new migration was required.
+- There is still no public sign-up screen. Administrator accounts remain a trusted provisioning task.
+
+#### 6. Password reset
+
+- `/forgot-password` calls `requestPasswordReset({ email, redirectTo: <origin>/reset-password })` and
+  always shows the same “if an account exists” confirmation.
+- `/reset-password` reads the `token` query parameter appended by Managed Better Auth.
+- A missing/used token renders an incomplete-link state; a rejected token renders the server message
+  (for example “Invalid or expired session token”).
+- Reset links are documented as single-use and expiring.
+
+#### 7. Copy and cleanup
+
+- Removed Sprint 1 “preview” wording from the admin/member shells, dashboard notice, placeholder page,
+  navigation comments and auth footer where it would now be inaccurate.
+- Updated `src/lib/query-client.ts` to document that auth state is owned by `AuthProvider` and the cache is
+  cleared on session loss.
+
+#### 8. Documentation
+
+- Added `docs/AUTHENTICATION.md` with the auth architecture, phases, route guards, onboarding, password
+  reset, configuration and hosted-verification checklist.
+- Updated `README.md` and this handoff document.
+
+---
+
+### Sprint 4 — Simple Bhishi Workflow (2026-11-03)
+
+Sprint 4 turns the authenticated shell into a small, complete Bhishi app for non-technical family
+members. The guiding rule was to add nothing that a 5–10 person group does not need: no reports, charts,
+exports, advanced filters or extra settings.
+
+#### 1. Reduced scope and navigation
+
+- Admin destinations reduced to **Home, Groups, Payments, Payouts**; member destinations to **Home, My
+  Group, Payments**. Profile is reached from the header profile menu (`/admin/profile`, `/member/profile`).
+- One shared mobile-first `AppShell` serves both roles: compact header plus bottom tabs on phones, and the
+  same destinations in the header on desktop.
+- Deleted the placeholder system (`route-placeholders.ts`, `placeholder-page.tsx`), the old dashboard
+  components/data/types, and every route that only showed a planned-feature screen.
+- Removed the `recharts` dependency and its focus-outline CSS; the app no longer ships a chart library.
+- Added `.prettierignore` so append-only SQL migrations, build output and local `favicon-data/` are not
+  reformatted.
+
+#### 2. Typed Bhishi data layer
+
+- `src/features/bhishi/types.ts` — row aliases from the generated database types plus view models for
+  groups, members, cycles, installments, obligations, payments, payouts and the flattened record-dialog
+  options.
+- `src/features/bhishi/api/bhishi-api.ts` — typed Data API queries for all eleven tables, insert mutations
+  for groups, members, payments and payouts, member/profile linking, own-profile update, and the
+  `activate_cycle(...)` RPC. No `DATABASE_URL` and no service key reaches the browser.
+- `src/features/bhishi/lib/derive.ts` — one normalization pass that:
+  - derives payment status from non-voided payments against each obligation;
+  - derives installment status, paid and collected totals;
+  - finds the current/next installment and the current payout recipient;
+  - flattens pending payment and payout choices for the two record dialogs.
+- `src/features/bhishi/hooks/use-bhishi.ts` — TanStack Query hooks around one compact snapshot key
+  (`queryKeys.bhishi.snapshot(profileId)`); every successful mutation invalidates that key.
+- `src/features/bhishi/lib/dates.ts` — local-date helpers used by the dialogs.
+
+#### 3. Shared UI and dialogs
+
+- Added `Field`, `Select`, `EmptyState`, `StatusBadge`, `PayoutBadge`, `DataError`, `GroupCard`,
+  `InstallmentList` and `MemberList`.
+- Added dialog forms: create group, add member, start cycle, record payment, record payout and link login.
+- Dialog forms now mount only while open, so their state resets on every open without a reset `useEffect`
+  (this also satisfies `react-hooks/set-state-in-effect`).
+- All primary actions use large touch targets and short labels; lists and cards replace wide tables.
+
+#### 4. Admin workflow
+
+- **Home** — current installment, payout recipient, collected/pending totals, group cards and quick
+  actions to create a group or record a payment.
+- **Groups** — group list plus create-group dialog.
+- **Group detail** — members, active/inactive membership, optional login linking, chit order, every
+  installment with its obligations, payment shortcuts and previous cycles (historical data stays visible).
+- **Payments** — outstanding contributions first, then recent payments; record-payment dialog preselects
+  the chosen obligation.
+- **Payouts** — installments still needing a payout, then recent payouts; record-payout dialog enforces the
+  chit-order recipient.
+
+#### 5. Member workflow
+
+- **Home** — this month's contribution status, amount paid/pending, payout recipient and a link to the
+  group.
+- **My Group** — group details, own chit number, current installment with per-member status, chit order and
+  the full installment schedule.
+- **My Payments** — pending contributions and personal payment history (including voided entries).
+- **Profile** — shared screen for name/phone updates and sign-out.
+
+#### 6. Database migration `00009_add_cycle_activation.sql`
+
+- Adds `activate_cycle(target_group_id, cycle_name, cycle_start_date, chit_order jsonb)` as one
+  `SECURITY DEFINER` transaction. It validates the admin role, group state and chit order, creates the
+  cycle, `cycle_members`, monthly `installments` and `contribution_obligations`, marks the group active and
+  writes an audit-log entry. A half-generated schedule cannot be committed.
+- Relies on the existing `members_profile_id_key` partial unique index from `00004`, so a login can be
+  linked to at most one member.
+- Applied to the hosted Neon production branch; the function was verified, and
+  `src/types/database.types.ts` was regenerated to include the new RPC.
+
+#### 7. Documentation
+
+- Updated `README.md` (status, routes, structure, data flow, roadmap, verification, limitations) and
+  `db/migrations/README.md` (migration `00009`).
+- Updated this handoff document.
+
+---
+
+### Sprint 5 — Bhishi Cycle & Chit Order Management (2026-11-03)
+
+Sprint 5 makes cycle setup an explicit, reviewable workflow. The admin first creates a draft, arranges the
+recipient order, then confirms activation. Members only ever see activated cycles. The existing Sprint 4
+activation behaviour (generating installments and obligations) is reused, because the payment and payout
+screens depend on those rows; it is not new Sprint 5 scope.
+
+#### 1. Database migration `00010_add_cycle_drafts.sql`
+
+- Added partial unique indexes `cycles_one_active_per_group` and `cycles_one_draft_per_group`, so a group can
+  have at most one active and one draft cycle at a time. Completed/cancelled history is unaffected.
+- Added `create_cycle_draft(target_group_id, cycle_name, cycle_start_date, contribution_amount,
+collection_day)`. Admin-only, locks the group, rejects archived groups, duplicate active/draft cycles,
+  invalid name/date/amount/day and fewer than two active members. It stores the contribution and
+  collection-day snapshots and inserts every active member with a provisional alphabetical chit order.
+- Added `set_cycle_chit_order(target_cycle_id, chit_order jsonb)`. Admin-only and draft-only. It validates
+  that the JSON covers exactly the participating members with unique member ids and chit numbers 1..N, then
+  saves the whole order in one statement pair using a temporary offset to avoid unique-constraint
+  collisions.
+- Added `activate_cycle_draft(target_cycle_id)`. Admin-only. It locks the group then the cycle, re-validates
+  the draft status, no other active cycle, participating members still active, and a complete 1..N order;
+  then inserts the monthly installments and contribution obligations from the cycle snapshots, marks the
+  cycle and group active, and appends an audit entry — all in one transaction.
+- All three functions are `SECURITY DEFINER` with `search_path = ''`; `EXECUTE` is revoked from `PUBLIC` and
+  granted only to `authenticated`. The Sprint 4 `activate_cycle(...)` function is left untouched for
+  backward compatibility.
+- Applied to the hosted Neon production branch and verified; `src/types/database.types.ts` was regenerated
+  with all three RPCs.
+
+#### 2. Data layer and derived views
+
+- `GroupView` now exposes `draftCycle`; `latestCycle` excludes draft cycles, so members never see an
+  unactivated cycle as their current cycle.
+- Added `chitPosition(cycle, memberId)` and `cycleProgress(cycle)` helpers.
+- Added `createCycleDraft`, `setCycleChitOrder` and `activateDraftCycle` API wrappers plus
+  `useCreateCycleDraft`, `useSetCycleChitOrder` and `useActivateDraftCycle` hooks. The old `activateCycle`
+  browser path was removed.
+- Added date helpers for the current month and for converting a start month plus collection day into a
+  concrete `start_date`, clamping the day to the month's last valid day.
+
+#### 3. Admin UI
+
+- **Group detail** now separates three states: no cycle, draft, and active.
+  - The header only offers **Create cycle** when the group has neither an active nor a draft cycle.
+  - The summary card shows the cycle's snapshot contribution and collection day once a cycle exists.
+- **Create cycle dialog** collects the cycle name, start month, monthly contribution and collection day,
+  shows the confirmed active-member list, and saves a draft. The participating members are all active group
+  members at creation time; the admin confirms the list but cannot deselect people, keeping the form short.
+- **Chit order editor** is a mobile list with large up/down buttons. Each tap saves the whole order through
+  the RPC, so duplicate positions can never be persisted. It is only shown for a draft and is replaced by a
+  read-only list after activation.
+- **Activate cycle dialog** shows the group name, member count, contribution, collection day, start date and
+  full recipient order before activation.
+- **Cycle schedule** reuses the existing installment list, now showing each recipient's chit position. A
+  compact progress summary shows months collected and payouts recorded.
+- Previous cycles remain visible in collapsible sections, excluding drafts.
+
+#### 4. Member UI
+
+- Members see only the active or latest non-draft cycle.
+- **My Group** shows the cycle's snapshot contribution and collection day, the member count for that cycle,
+  their own chit position, the read-only chit order, and the schedule with each recipient's chit position.
+- Members have no create, reorder or activate controls.
+
+#### 5. Documentation
+
+- Updated this handoff document, `docs/DATABASE_ARCHITECTURE.md`, `db/migrations/README.md` and `README.md`
+  for migration `00010` and the draft workflow.
+
+---
+
 ## D. Pending Work
 
-Everything below is intentionally **not** implemented:
+Everything below is intentionally **not** implemented, or is implemented but not verified:
 
-- Real Neon Auth sign-up/sign-in testing; admin user and profile provisioning; password reset and email
-  delivery; application authentication integration (session provider, guards, role redirects).
-- Hosted JWT forwarding and authenticated RLS testing through the Data API.
-- Group, member, cycle, installment, payment and payout CRUD or data fetching.
-- Chit assignment rules, installment generation, financial calculations, running balances.
-- Live dashboards (replacing `sample-data.ts`), member dashboard.
-- Reports, exports, audit-log emission from application mutations, settings persistence.
-- Atomic PostgreSQL functions for multi-row financial workflows (payment + audit, cycle generation).
-- Automated tests (unit / integration / E2E), CI pipeline, deployment configuration.
+- **Authenticated hosted verification:** successful Neon Auth sign-in, session persistence across reloads,
+  profile loading, `ensure_own_profile()` success, role-based dashboard routing, hosted JWT forwarding and
+  authenticated Data API/RLS evaluation. These need a provisioned test account.
+- **Hosted end-to-end Bhishi flow:** creating a group, adding members, creating and activating a cycle
+  draft, reordering the chit order, recording a payment/payout and reading the result back as a linked
+  member have not been exercised against the hosted project.
+- **Cycle lifecycle gaps:** there is still no UI to complete/close an active cycle or discard a draft. A
+  draft can be activated but not deleted; a group with an active cycle cannot start the next one from the app.
+- **Cycle draft verification scope:** the new RPCs were verified with SQL assertions inside a rollback-only
+  hosted transaction using mocked identity helpers. Real authenticated invocation through the Data API is
+  still unverified.
+- **Admin provisioning:** the dummy `aashish@bachatbook.app` account is not confirmed linked to
+  `public.profiles`; create/link it through the trusted direct-SQL procedure.
+- **Member login linking:** the admin “Link login” action exists, but no real member profile has been linked
+  and used to sign in.
+- **Password-reset email delivery:** the request/reset calls are wired and invalid-token handling was
+  verified, but no reset email has been delivered or consumed end-to-end.
+- **Edit and archive flows:** group details, member details, membership status and member login unlinking
+  are not editable from the UI yet (archive/deactivate paths are available in the schema).
+- **Payment correction UI:** the database supports voiding with an actor, time and reason, but no screen
+  exposes voiding yet.
+- **Automated tests (unit / integration / E2E), CI pipeline, deployment configuration.**
 - Dark mode, i18n, offline/PWA service worker (a manifest exists; no service worker is registered).
 - Accessibility audit with a dedicated tool (only manual/keyboard checks were performed).
+- Reports, exports, advanced analytics, audit-log UI and extra settings are **deliberately out of scope**,
+  not pending work.
 
 ---
 
@@ -401,19 +678,22 @@ Everything below is intentionally **not** implemented:
 4. **TypeScript pinned to `~5.9.3`.** `typescript-eslint@8` supports `<6.1.0`, while npm’s `latest` is
    TypeScript 7 — pinning avoids an unusable lint toolchain.
 5. **Single source of colour truth.** HSL variables in `globals.css`, mapped once in `tailwind.config.ts`.
-   No component declares raw hex/rgb values (Recharts accepts `hsl(var(--…))` strings).
+   No component declares raw hex/rgb values; components consume the same CSS variables.
 6. **Feature-based structure** (`features/auth`, `features/dashboard`) with shared layers in
    `components/`, `lib/`, `hooks/`, `types/`. New sprints add a feature folder rather than growing pages.
-7. **Sample data isolation.** All fixtures live in one typed module with an `isSampleData: true`
-   discriminator and a removal comment, so Sprint 9 can swap in queries file-by-file.
+7. **Sample data isolation (superseded in Sprint 4).** All fixtures originally lived in one typed module
+   with an `isSampleData: true` discriminator and a removal comment. Sprint 4 deleted that module and
+   replaced it with live Data API queries, exactly as planned.
 8. **Honest auth UI.** Forms validate locally and say so. No mock session, no fake redirect, no stored
    credentials — this keeps Sprint 3 free of cleanup work and avoids misleading behaviour.
 9. **Route-level code splitting.** Auth screens and dashboard are lazy-loaded; layout-level `Suspense`
    shows skeletons rather than a blank screen. This removed the >500 kB single-chunk build warning.
-10. **Placeholder guard is explicit.** `ProtectedRoutePlaceholder` renders `<Outlet />` and is documented
-    in code and docs; Sprint 3 replaces exactly one component.
-11. **Admin vs. member shells are separate** (dark sidebar vs. light top nav) to signal different roles
-    without implementing authorization.
+10. **Placeholder guard is explicit (superseded in Sprint 3).** `ProtectedRoutePlaceholder` rendered
+    `<Outlet />` and was documented in code and docs; Sprint 3 replaced exactly one component with
+    `RequireRole`/`RequireSession`.
+11. **Admin vs. member shells are separate (superseded in Sprint 4).** The dark sidebar and light top nav
+    originally signalled different roles. Sprint 4 replaced both with one shared mobile-first `AppShell`;
+    the role is shown in the profile menu and access is still enforced by guards and RLS.
 12. **`vite.config.js` removed.** Two configs coexisted and vite resolved the JS one; deleting it fixed
     the `@` alias in dev.
 13. **Added `Alert`** beyond the required component list because every auth screen and the dashboard needs
@@ -476,6 +756,99 @@ Everything below is intentionally **not** implemented:
     direct users to `@neondatabase/neon-js`. The wrapper pins the workflow (not the runtime SDK) and the
     generated file is compatible with `@neon/neon-js`.
 
+### Sprint 3 decisions (authentication)
+
+35. **One shared client remains the auth authority.** Session JWTs and Data API requests share the same
+    Neon client, so the Data API always sees the token Managed Better Auth issued. No second client and no
+    manual token handling were introduced.
+36. **`public.profiles` is the only role source.** The provider reads `role` and `is_active` from the
+    profile row returned under RLS. Sign-in forms, route state, local storage and query strings never
+    supply a role.
+37. **Explicit profile filter for admins.** `fetchOwnProfile()` filters by `auth_user_id` before using
+    `.maybeSingle()`, because an administrator's RLS policy can see every profile row.
+38. **Session atom, not polling.** The provider subscribes to `auth.useSession` (nanostore) rather than
+    polling `getSession()`, gaining cross-tab updates, focus refreshes and expiry handling from the SDK.
+39. **Request generation guard.** A monotonically increasing request id prevents a stale profile response
+    from a previous session from overwriting the current auth state.
+40. **Auth state lives outside TanStack Query.** Session lifecycle is a provider concern; TanStack Query is
+    only cleared on sign-out so future data caches cannot leak between accounts.
+41. **Guards are navigation aids.** `RequireRole` is documented in code as non-authoritative; PostgreSQL
+    RLS remains the security boundary. Wrong-role users get an explicit 403 screen instead of a silent
+    redirect, which makes provisioning mistakes visible.
+42. **Self-service onboarding is member-only.** `/complete-profile` calls the existing
+    `ensure_own_profile()` RPC. It cannot request a role, and no new migration or admin sign-up path was
+    added.
+43. **Render-phase redirects after sign-in.** The login page does not navigate from the immediate
+    `signIn.email()` result; it lets the provider settle the profile phase and redirect from render. This
+    avoids a race where a slow profile fetch sends a user to the wrong portal.
+44. **Password reset uses the emailed token.** `requestPasswordReset` includes the current origin's
+    `/reset-password` URL; the reset page reads `?token=`. Missing tokens render an incomplete-link state
+    rather than a form that cannot succeed.
+45. **No new migration.** Migration `00008` already provides the only required database capability
+    (`ensure_own_profile`). Applied migrations were left untouched.
+
+### Sprint 4 decisions (simple Bhishi workflow)
+
+46. **Drastically reduced scope.** The app keeps only Dashboard, Groups, Members/Chit Order/Installments
+    (inside group detail), Payments, Payouts and Profile. Reports, charts, exports, advanced filters and
+    settings were removed rather than hidden, because every extra screen makes the app harder for a
+    non-technical member.
+47. **Members, Chit Order and Installments live inside the group screen.** A separate screen per concept
+    added navigation without adding information. The group detail page now shows the whole small-group
+    picture in one scroll.
+48. **One compact snapshot query.** All eleven tables are fetched in parallel under a single TanStack Query
+    key and normalized once. This keeps the number of round trips low on ordinary phones and makes every
+    screen consistent after a mutation.
+49. **Financial status is always derived, never stored.** Paid amounts, remaining amounts, installment
+    status and collection totals are computed from non-voided payments against
+    `contribution_obligations.expected_amount`. No running total is written by the browser and no stale
+    aggregate can drift.
+50. **Cycle activation is atomic in PostgreSQL.** `activate_cycle(...)` performs validation, cycle creation,
+    chit assignment, installment generation, obligation generation, group activation and audit logging in
+    one transaction. Doing this in several browser requests could leave a partial schedule behind.
+51. **One login per member enforced by the database.** The existing `members_profile_id_key` partial index
+    makes the “link login” action safe even if two admins attempt it concurrently. No duplicate index was
+    added.
+52. **Status from the database, not the UI.** Route guards remain navigation aids; RLS still authorizes every
+    read and write. A member cannot record a payment even if a UI control were exposed.
+53. **Dialogs mount only while open.** Form components are rendered conditionally, so their local state is
+    fresh on every open without a reset effect. This removes a class of cascading-render bugs and satisfies
+    the `react-hooks/set-state-in-effect` rule.
+54. **One shared shell for both roles.** Mobile gets a bottom tab bar with large touch targets and desktop
+    gets the same destinations in the header. Role differences are communicated by the profile menu and the
+    screens themselves, not by a second navigation system.
+55. **Recharts removed.** The only chart was a sample-data preview. Live dashboards use plain cards and
+    numbers, which are easier to read on a phone and remove a large dependency from the bundle.
+56. **No new runtime dependencies.** The workflow is built with the existing React, Router, TanStack Query,
+    Lucide and Neon packages; only `recharts` was removed.
+
+### Sprint 5 decisions (cycle drafts and chit order)
+
+57. **Draft → review → activate, instead of one-shot creation.** Separating the draft lets the admin check
+    the member list and arrange the order on a phone without racing the schedule creation. The draft is
+    invisible to members until activation.
+58. **Three small RPCs instead of browser orchestration.** `create_cycle_draft`, `set_cycle_chit_order` and
+    `activate_cycle_draft` each perform their validation and writes in PostgreSQL. Reordering and activation
+    cannot leave partial state, and the database still authorizes every step.
+59. **Draft membership is fixed to all active group members.** Letting the admin deselect members would add
+    a form, validation and a second source of truth for participation. Groups are small; the admin confirms
+    the list and adds/removes members at the group level.
+60. **Whole-order saves for chit reordering.** Moving a member uses a temporary `chit_number + 1000000`
+    offset inside the function so the unique `(cycle_id, chit_number)` constraint is never violated mid-save.
+    The client never sends a partial order.
+61. **Two partial unique indexes enforce one draft and one active cycle per group.** The rules are enforced
+    even if two admins act concurrently, not just in the UI.
+62. **Cycle snapshots are the source for activation.** Installments and obligations are generated from the
+    cycle's stored contribution and collection day, never from the current group values, so history is
+    immutable after activation.
+63. **The Sprint 4 activation behaviour is reused.** Installments and obligations are still generated at
+    activation because the payment and payout screens depend on them; Sprint 5 does not add new financial
+    calculations.
+64. **Chit order is editable only while `draft`.** Once activated, only a read-only list is shown and the RPC
+    rejects reordering, protecting historical schedules.
+65. **One new migration, no edits to applied files.** `00010_add_cycle_drafts.sql` is additive; migrations
+    `00001`–`00009` were left untouched.
+
 ---
 
 ## F. Dependencies and Environment
@@ -483,7 +856,7 @@ Everything below is intentionally **not** implemented:
 ### Runtime dependencies
 
 `@hookform/resolvers`, `@neon/neon-js`, `@tanstack/react-query`, `clsx`, `lucide-react`, `react`,
-`react-dom`, `react-hook-form`, `react-router-dom`, `recharts`, `tailwind-merge`, `zod`.
+`react-dom`, `react-hook-form`, `react-router-dom`, `tailwind-merge`, `zod`.
 
 ### Development dependencies
 
@@ -497,8 +870,8 @@ Everything below is intentionally **not** implemented:
 | ------------------------ | --------------------------------------------------- | --------------------- |
 | `VITE_APP_NAME`          | Display name                                        | No (defaults in code) |
 | `VITE_APP_ENV`           | Environment label                                   | No                    |
-| `VITE_NEON_AUTH_URL`     | Managed Better Auth URL, ending in `/auth`          | Yes from Sprint 3     |
-| `VITE_NEON_DATA_API_URL` | Data API URL, ending in `/rest/v1`                  | Yes from Sprint 3     |
+| `VITE_NEON_AUTH_URL`     | Managed Better Auth URL, ending in `/auth`          | Yes                   |
+| `VITE_NEON_DATA_API_URL` | Data API URL, ending in `/rest/v1`                  | Yes                   |
 | `DATABASE_URL`           | Direct PostgreSQL URL for migrations/types (server) | Tooling only          |
 
 > `DATABASE_URL` is server-side only and must never be prefixed with `VITE_`, because Vite exposes every
@@ -519,8 +892,8 @@ npm run build && npm run preview
 ### Database — migrations on the hosted Neon project
 
 The hosted **BachatBook** project exists, its **production** branch is active, and Neon Auth + Data API are
-enabled. All eight migrations have been applied to that branch. Use these commands when applying future
-migrations or reseeding a fresh branch:
+enabled. All ten migrations (`00001`–`00010`) have been applied to that branch. Use these commands when
+applying future migrations or reseeding a fresh branch:
 
 ```bash
 # PowerShell
@@ -549,18 +922,22 @@ Node 20.19+ is required by Vite 8 (verified on Node 24.22.1, npm 11.19.1).
 
 ## G. Known Issues
 
-1. **No authentication.** All admin/member routes are publicly reachable; the guard is a pass-through by
-   design until Sprint 3.
-2. **Dashboard uses static fixtures.** Figures are not derived from any data and will not change.
+1. **Authentication is implemented but not verified with a successful hosted sign-in.** Guards, session
+   handling and onboarding are wired; no provisioned test account exists yet. PostgreSQL RLS remains the
+   security boundary.
+2. **The snapshot query loads all visible rows.** This is efficient for a 5–10 person group but would need
+   pagination if the app were ever used at a much larger scale.
 3. **`npm audit` reports 12 moderate advisories in development tooling** (ESLint 10 → `minimatch` /
    `eslint-utils` chain). `npm audit --omit=dev` reports **0 vulnerabilities**. Do not run
    `npm audit fix --force`; it downgrades `typescript-eslint` and breaks the lint setup.
-4. **Placeholder routes are intentionally empty** and may look “unfinished” — that is the expected
-   Sprint 1 state, labelled on-screen.
+4. **Payments and payouts cannot be edited or voided from the UI yet.** The schema supports voiding with an
+   actor, time and reason, but no screen exposes it.
 5. **Google Fonts requires network access**; with no connection the UI falls back to system sans-serif.
-6. **No automated test suite** yet (Sprint 11). Verification was manual plus browser smoke tests.
+6. **No automated test suite** yet (planned for Sprint 6). Verification was manual plus browser smoke tests.
 7. **PWA manifest exists without a service worker**, so the app is not installable/offline yet.
-8. **Sidebar/route state resets on full reload** — expected, since there is no persisted session.
+8. **Session persistence depends on Managed Better Auth cookies.** The provider restores the session on
+   load and reacts to the session atom, but cross-reload persistence and cross-tab behaviour were not
+   exercised with a real signed-in account.
 9. **`tailwind-merge` is on v2** (compatible with Tailwind 3); keep the pairing until Tailwind is
    upgraded.
 
@@ -581,7 +958,7 @@ Node 20.19+ is required by Vite 8 (verified on Node 24.22.1, npm 11.19.1).
 16. **Local `config.toml` enables email sign-up** for development convenience. Disable public sign-up in
     the hosted project until a controlled onboarding flow exists; sign-up alone grants no role.
 17. **No automated database tests.** Verification used ad-hoc SQL assertions against a scratch cluster;
-    these should become repeatable tests in Sprint 11.
+    these should become repeatable tests in Sprint 6.
 
 ### Sprint 2.5 issues (Neon migration)
 
@@ -602,34 +979,83 @@ Node 20.19+ is required by Vite 8 (verified on Node 24.22.1, npm 11.19.1).
 24. **Transitive `@supabase/auth-js` remains in the lockfile** inside Neon's `@neon/auth` package. It is not
     used for Supabase integration and must not be added as a direct dependency.
 
+### Sprint 3 issues (authentication)
+
+25. **No valid hosted test credentials.** Successful sign-in, session persistence, profile loading,
+    onboarding, role routing, password-reset delivery and authenticated RLS could not be exercised. Only
+    unauthenticated and rejected-credential hosted flows were verified.
+26. **The dummy admin account is not confirmed provisioned.** `aashish@bachatbook.app` may exist in Neon
+    Auth, but no matching `public.profiles` row was verified. Provisioning remains a trusted direct-SQL
+    task; do not create a second administrator account.
+27. **Hosted JWT forwarding and authenticated RLS are still unproven.** The Data API/Auth endpoints are
+    reachable and the `get-session` probe returns `null` when signed out, but policy evaluation under a
+    real JWT has not been observed.
+28. **`database.types.ts` reflects the local schema (resolved in Sprint 4).** It was regenerated from the
+    hosted branch after `00009`; the stale note is retained as Sprint 3 history.
+29. **No sign-up UI.** Accounts are expected to be created by an administrator or through the Neon
+    Console. Self-service onboarding applies only to an existing authenticated user with no profile.
+30. **Password-reset email delivery is unverified.** Request/reset calls and invalid-token handling work,
+    but no email has been received or consumed end-to-end.
+31. **Guard is not a security boundary.** Route guards only choose screens; forgetting an RLS policy
+    would be a real vulnerability, not a UI bug.
+
+### Sprint 4 issues
+
+32. **Hosted end-to-end workflow is unverified.** Group creation, member addition, cycle activation,
+    payment/payout recording and member-side reads compile and are covered by the data layer, but none has
+    been exercised against the hosted project with a real session.
+33. **No edit or archive UI.** Group details, member details, membership status and login unlinking are
+    read-only; the schema supports archive/deactivate but no screen exposes it.
+34. **No cycle-close UI.** `activate_cycle()` correctly refuses a second active cycle, but there is no
+    screen to complete the current cycle, so a group cannot start its next cycle from the app yet.
+35. **Audit rows are written only for cycle activation.** Group, member, payment and payout mutations do not
+    write audit entries in this sprint.
+36. **Payment/payout corrections have no UI.** Voiding is supported by the schema but not exposed.
+
+### Sprint 5 issues
+
+37. **No draft discard or cycle-close UI.** An admin can create and activate a draft but cannot delete it, and
+    an active cycle cannot be completed from the app. The database rejects a second active cycle, so a group
+    cannot start its next cycle without a trusted SQL update.
+38. **Draft visibility is resolved in the client.** RLS intentionally lets group members read all cycles so
+    history stays visible; the member screens filter drafts out. A member with direct Data API access could
+    still read a draft row for their group, though not change it.
+39. **Hosted authenticated verification is still pending.** The new RPCs were executed and inspected on the
+    hosted branch, and their logic/RLS was verified inside a rollback-only transaction with identity mocks;
+    real JWT-authenticated invocation remains unproven.
+40. **Cycle snapshots do not revalidate group edits after activation.** If a group's contribution changes, the
+    active cycle keeps its original amount by design. The UI does not yet highlight this difference.
+
 ---
 
-## H. Next Sprint — Sprint 3: Authentication & Security
+## H. Next Sprint — Sprint 6: Testing & Deployment
 
-**Objective:** turn the auth UI into real authentication backed by Neon Managed Better Auth and enforce
-role-aware route access. No CRUD or financial features yet.
+**Objective:** prove the hosted workflow end to end, add automated coverage for the cycle functions and
+financial derivations, and prepare a deployable build.
 
 Planned scope:
 
-1. Regenerate `database.types.ts` against the hosted branch, provision the first administrator through the
-   trusted direct-SQL process, and link that Auth user to a profile.
-2. Add an auth session provider (`getSession`, auth state), sign-in, sign-out and password-reset flows
-   using `getNeonAuth()` from `src/lib/neon/auth.ts`.
-3. Replace `ProtectedRoutePlaceholder` with real guards for `/admin/*` and `/member/*`, plus role-based
-   redirects and an unauthorised page.
-4. Call `ensure_own_profile()` after sign-up and load the signed-in user's `profiles` row and role; never
-   trust a client-supplied role.
-5. Persist sessions safely, handle expired sessions and surface actionable auth errors.
-6. Verify hosted RLS: member/admin/outsider visibility, JWT forwarding and Data API role selection.
-7. Update `README.md`, `docs/PROJECT_STATUS.md` and the auth documentation.
+1. Provision (or confirm) one administrator profile and one linked member profile through the trusted
+   direct-SQL process; do not create a second administrator account.
+2. Verify hosted sign-in, session persistence, onboarding, role routing and JWT forwarding through the Data
+   API under both roles.
+3. Run the full admin workflow on the hosted project: create group → add members → link a login → create a
+   cycle draft → reorder chits → activate → record payments → record payouts; then confirm the member sees
+   the same activated cycle and schedule.
+4. Add unit tests for `derive.ts` (payment status, remaining amounts, current installment, recipient
+   selection, chit position, cycle progress, dialog options).
+5. Add database tests for `activate_cycle_draft()`, `set_cycle_chit_order()`, the one-draft/one-active
+   indexes and RLS visibility (admin / linked member / outsider).
+6. Add the remaining small workflow gaps if they block real use: cycle close/draft discard, edit/archive and
+   payment voiding.
+7. Add a CI pipeline running `typecheck`, `lint`, tests and `build`, and document deployment.
+8. Update `README.md`, this handoff document and any feature documentation.
 
-**Out of scope:** group/member CRUD, cycle or installment logic, payment/payout recording — all remain
-in Sprints 4–8.
+**Out of scope:** reports, exports, analytics, audit-log UI, advanced settings and filters.
 
-**Prerequisites before starting:** hosted Neon project `BachatBook` with the production branch active
-(already done); Neon Auth and Data API enabled (already done); migrations applied (already done);
-`VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` supplied to the app; an administrator Neon Auth user +
-profile provisioned.
+**Prerequisites before starting:** a provisioned administrator account linked to `public.profiles`; a
+linked member test account; `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` present in `.env`; the hosted
+database at migration `00010`.
 
 ---
 
@@ -695,7 +1121,7 @@ Build output (largest assets): `index-*.js` 402.34 kB (gzip 125.85), `dashboard-
 #### Not verified
 
 - Lighthouse/axe audit, cross-browser testing (Firefox/Safari), automated test suite, real network
-  conditions. These are deferred to Sprint 11.
+  conditions. These are deferred to Sprint 6 (Testing & Deployment).
 
 ---
 
@@ -903,3 +1329,198 @@ produce this record.
 The hosted policy count matches the local pre-flight verification, so the same 31 policies (with no
 `DELETE` policies) are present remotely. What remains unproven is runtime behaviour under a real session:
 JWT forwarding from Managed Better Auth through the Data API, and per-role visibility.
+
+---
+
+### Sprint 3 — Authentication & Security (2026-11-03)
+
+All checks below were executed on 2026-11-03. Static checks ran against the final code. Browser checks
+used the Vite dev server on `http://localhost:5174` (port 5173 was already occupied) against the hosted
+Neon Auth/Data API endpoints. **No successful hosted sign-in was possible**, so authenticated behaviour is
+explicitly recorded as unverified rather than passed.
+
+#### Static checks
+
+| Check                       | Command                | Result                                                              |
+| --------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| TypeScript                  | `npm run typecheck`    | ✅ Passed — 0 errors                                                |
+| ESLint                      | `npm run lint`         | ✅ Passed — 0 errors, 0 warnings                                    |
+| Production build            | `npm run build`        | ✅ Passed — 3006 modules, no chunk-size warning                     |
+| Prettier (changed files)    | `npx prettier --check` | ✅ Changed auth/app/layout/dashboard files formatted                |
+| Production dependency audit | `npm audit --omit=dev` | ✅ 0 vulnerabilities (12 moderate dev-tooling advisories unchanged) |
+
+Pre-existing Prettier warnings remain in unrelated files (`page-header.tsx`, `card.tsx`, `dropdown.tsx`,
+`input.tsx`, `toast.tsx`, `button-variants.ts`, `upcoming-collections.tsx`, `database.types.ts`).
+
+#### Hosted authentication probes
+
+| Check                                                     | Result                                                                                                               |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Hosted `GET /get-session` while signed out                | ✅ HTTP 200, body `null`                                                                                             |
+| CORS for the dev origin                                   | ✅ `http://localhost:5174` accepted                                                                                  |
+| Invalid email/password (`nobody.sprint3@example.invalid`) | ✅ HTTP 401 `INVALID_EMAIL_OR_PASSWORD`; UI shows “Could not sign in / Invalid email or password”                    |
+| Missing reset token (`/reset-password`)                   | ✅ “This reset link is incomplete” state                                                                             |
+| Bogus reset token (`?token=…`)                            | ✅ Form renders; submit returns HTTP 400 “Invalid or expired session token”, shown as “Could not reset the password” |
+| Forgot-password page                                      | ✅ Renders email field and requests a reset email through Managed Better Auth                                        |
+
+#### Route guards (unauthenticated)
+
+| Route               | Result                   |
+| ------------------- | ------------------------ |
+| `/`                 | ✅ Redirects to `/login` |
+| `/admin`            | ✅ Redirects to `/login` |
+| `/admin/dashboard`  | ✅ Redirects to `/login` |
+| `/member/dashboard` | ✅ Redirects to `/login` |
+| `/complete-profile` | ✅ Redirects to `/login` |
+
+No application console errors were observed on the tested routes.
+
+#### Not verified (requires a provisioned account)
+
+- Successful hosted sign-in and sign-out, and the resulting `authenticated` phase.
+- Session persistence across reloads and cross-tab sign-in/sign-out.
+- Profile loading from `public.profiles` and role-based dashboard routing.
+- `ensure_own_profile()` success and the `needs-profile` → `authenticated` transition.
+- Inactive-profile handling with a real deactivated account.
+- Password-reset email delivery, link consumption and successful password change.
+- Hosted JWT forwarding from Managed Better Auth through the Data API.
+- Authenticated RLS evaluation (member vs. admin vs. outsider visibility).
+- Time-based session expiry and refresh with a real session.
+
+These are blocking verification items, not implementation claims. The code paths exist and compile, but
+they have not been proven against a real hosted session.
+
+---
+
+### Sprint 4 — Simple Bhishi Workflow (2026-11-03)
+
+All checks below were executed on 2026-11-03 against the final code. Hosted authenticated behaviour remains
+unverified for the same reason as Sprint 3: no valid test credentials.
+
+#### Static checks
+
+| Check                       | Command                | Result                                                              |
+| --------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| TypeScript                  | `npm run typecheck`    | ✅ Passed — 0 errors                                                |
+| ESLint                      | `npm run lint`         | ✅ Passed — 0 errors, 0 warnings                                    |
+| Production build            | `npm run build`        | ✅ Passed — 2450 modules, no chunk-size warning                     |
+| Prettier                    | `npx prettier --check` | ✅ All source, docs and config files formatted                      |
+| Production dependency audit | `npm audit --omit=dev` | ✅ 0 vulnerabilities (12 moderate dev-tooling advisories unchanged) |
+
+Build output: `index.html` 1.12 kB, CSS 27.76 kB (gzip 6.51 kB), route chunks split per page, and the
+largest shared chunk 468.77 kB (gzip 146.77 kB) — below the 500 kB warning threshold. Removing Recharts
+and the sample dashboard substantially reduced the bundle compared with Sprint 3.
+
+The React 19 `react-hooks/set-state-in-effect` rule flagged the first dialog implementations. Dialogs now
+render their form component only while open, so local state resets without a reset effect.
+
+#### Database migration `00009`
+
+| Check                                          | Result                                                         |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| Applied to hosted Neon production branch       | ✅ Completed without error                                     |
+| `public.activate_cycle(...)` exists            | ✅ 1 function                                                  |
+| `members_profile_id_key` unique index retained | ✅ Existing partial unique index; no duplicate added           |
+| `src/types/database.types.ts` regenerated      | ✅ Contains `activate_cycle` args and return type              |
+| Function executable by `authenticated` only    | ✅ `EXECUTE` revoked from `PUBLIC`, granted to `authenticated` |
+| No destructive statements                      | ✅ Additive migration only; no table or data removal           |
+
+#### Scope and route checks
+
+| Check                                                          | Result                                                      |
+| -------------------------------------------------------------- | ----------------------------------------------------------- |
+| Admin routes: dashboard, groups, groups/:id, payments, payouts | ✅ Present in `router.tsx`; profile via header menu         |
+| Member routes: dashboard, groups, payments                     | ✅ Present in `router.tsx`; profile via header menu         |
+| Placeholder modules removed                                    | ✅ No imports of `route-placeholders` or `placeholder-page` |
+| Sample dashboard components/data/types removed                 | ✅ `features/dashboard` contains only the two live pages    |
+| `recharts` removed                                             | ✅ Absent from `package.json` and the bundle                |
+| One shared mobile-first shell                                  | ✅ `AppShell` used by both `AdminLayout` and `MemberLayout` |
+| Dialogs reset state without effects                            | ✅ ESLint reports no `set-state-in-effect` errors           |
+
+#### Not verified (requires a provisioned account)
+
+- Successful hosted sign-in and the authenticated phase.
+- Creating a group, adding members and linking a member login on the hosted project.
+- Starting a cycle and confirming the generated chit order, installments and obligations.
+- Recording a payment/payout and seeing derived status update for admin and member.
+- Member home, My Group and My Payments against real linked data.
+- Authenticated RLS visibility (admin vs. member vs. outsider) and JWT forwarding.
+- Payment voiding and cycle closing, which have no UI yet (see Known Issues).
+
+---
+
+### Sprint 5 — Bhishi Cycle & Chit Order Management (2026-11-03)
+
+All checks below were executed on 2026-11-03 against the final code. Hosted authenticated behaviour remains
+unverified for the same reason as Sprints 3–4: no valid test credentials.
+
+#### Static checks
+
+| Check                       | Command                | Result                                                              |
+| --------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| TypeScript                  | `npm run typecheck`    | ✅ Passed — 0 errors                                                |
+| ESLint                      | `npm run lint`         | ✅ Passed — 0 errors, 0 warnings                                    |
+| Production build            | `npm run build`        | ✅ Passed — 2452 modules, no chunk-size warning                     |
+| Prettier                    | `npm run format:check` | ✅ All source, docs and config files formatted                      |
+| Production dependency audit | `npm audit --omit=dev` | ✅ 0 vulnerabilities (12 moderate dev-tooling advisories unchanged) |
+
+Build output: `index.html` 1.12 kB, CSS 27.76 kB (gzip 6.51 kB), route chunks split per page, largest shared
+chunk 468.77 kB (gzip 146.76 kB) — below the 500 kB warning threshold.
+
+#### Database migration `00010`
+
+| Check                                        | Result                                                         |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| Applied to hosted Neon production branch     | ✅ Completed without error                                     |
+| `create_cycle_draft(...)` exists             | ✅ `create_cycle_draft(uuid,text,date,numeric,integer)`        |
+| `set_cycle_chit_order(uuid,jsonb)` exists    | ✅ Present                                                     |
+| `activate_cycle_draft(uuid)` exists          | ✅ Present                                                     |
+| `cycles_one_active_per_group` index exists   | ✅ Present                                                     |
+| `cycles_one_draft_per_group` index exists    | ✅ Present                                                     |
+| `src/types/database.types.ts` regenerated    | ✅ Contains all three RPCs with args and return types          |
+| Functions executable by `authenticated` only | ✅ `EXECUTE` revoked from `PUBLIC`, granted to `authenticated` |
+| No destructive statements                    | ✅ Additive migration; previous migrations untouched           |
+
+#### SQL logic and RLS verification (rollback-only, hosted)
+
+Executed with a temporary `pg` script inside a transaction that was rolled back, so the hosted database was
+unchanged. Because a direct connection has no Neon Data API JWT, `current_profile_id()` and `is_admin()`
+were replaced **inside that transaction only** with GUC-backed mocks; the real helpers were confirmed
+restored after rollback. **39 assertions passed**, covering:
+
+| Area                    | Result                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| Draft creation          | ✅ Returns a draft cycle, stores contribution/day/member-count snapshots, provisional order 1..N |
+| Duplicate draft         | ✅ Rejected with “already has a draft cycle”                                                     |
+| Too few members         | ✅ Rejected below two active members                                                             |
+| Chit reorder persists   | ✅ Saved order matches the admin selection                                                       |
+| Duplicate positions     | ✅ Rejected; saved order unchanged                                                               |
+| Missing member          | ✅ Rejected (“exactly one chit position”)                                                        |
+| Out-of-range numbers    | ✅ Rejected (“must run from 1”)                                                                  |
+| Inactive member         | ✅ Activation rejected                                                                           |
+| Atomic activation       | ✅ Cycle active, 3 installments, 9 obligations, correct recipients/dates/snapshot amounts        |
+| Double activation       | ✅ Rejected; reorder after activation rejected                                                   |
+| Active-cycle draft      | ✅ Creating another draft rejected                                                               |
+| Historical preservation | ✅ Snapshots unchanged after group edits; previous order and schedule unchanged after next cycle |
+| Member read access      | ✅ Member reads both cycles and the schedule; updates affect 0 rows                              |
+| Member RPC calls        | ✅ All three functions reject non-admins; direct cycle insert denied by RLS                      |
+| Cleanup                 | ✅ Transaction rolled back; no verification rows or mocks left in the hosted database            |
+
+#### UI and scope checks
+
+| Check                                              | Result                                                               |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| Create cycle form uses group defaults              | ✅ Contribution and collection day prefilled from the group          |
+| Draft hidden from member “current cycle”           | ✅ `latestCycle` excludes drafts; only admin cards show a draft hint |
+| Chit reorder is draft-only and mobile-friendly     | ✅ Large up/down buttons (44 px); read-only list after activation    |
+| Activation confirmation shows all required details | ✅ Group, members, contribution, collection day, start date, order   |
+| Schedule shows month, recipient and chit position  | ✅ Admin and member views                                            |
+| Member screens are read-only                       | ✅ No member create/reorder/activate controls                        |
+| Previous cycles exclude drafts                     | ✅ Completed/cancelled cycles remain visible with their own orders   |
+
+#### Not verified (requires a provisioned account)
+
+- Creating, reordering and activating a cycle draft through the hosted Data API under a real admin JWT.
+- Member-side visibility of an activated cycle through a real linked login.
+- Real RLS behaviour for drafts under authenticated sessions.
+- Mobile browser walkthrough of the new dialogs and ordering controls.

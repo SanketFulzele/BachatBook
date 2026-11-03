@@ -1,24 +1,45 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowRight, LockKeyhole, Mail } from 'lucide-react'
 import { AuthLayout } from '@/features/auth/components/auth-layout'
 import { PasswordInput } from '@/features/auth/components/password-input'
+import { useAuth } from '@/features/auth/components/auth-context'
 import { loginSchema, type LoginFormValues } from '@/features/auth/schemas/auth.schemas'
+import type { AuthRole } from '@/features/auth/types/auth.types'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { buttonVariants } from '@/components/ui/button-variants'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast-context'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { ROUTES } from '@/lib/constants'
 
+function resolvePostLoginPath(role: AuthRole, from: string | null): string {
+  const prefix = role === 'admin' ? '/admin' : '/member'
+
+  if (from && from.startsWith(prefix) && !from.startsWith('//')) {
+    return from
+  }
+
+  return role === 'admin' ? ROUTES.admin.dashboard : ROUTES.member.dashboard
+}
+
+function readFromPath(state: unknown): string | null {
+  if (typeof state !== 'object' || state === null) return null
+  const from = (state as { from?: unknown }).from
+  return typeof from === 'string' ? from : null
+}
+
 export function LoginPage() {
   useDocumentTitle('Sign in')
+  const auth = useAuth()
   const { toast } = useToast()
-  const [validated, setValidated] = useState(false)
+  const location = useLocation()
+
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const {
     register,
@@ -33,12 +54,44 @@ export function LoginPage() {
     },
   })
 
-  const onSubmit = (values: LoginFormValues) => {
-    setValidated(true)
+  const from = readFromPath(location.state)
+  const isUnconfigured = auth.phase === 'unconfigured'
+
+  if (auth.phase === 'authenticated' && auth.user) {
+    return <Navigate to={resolvePostLoginPath(auth.user.role, from)} replace />
+  }
+
+  if (auth.phase === 'needs-profile') {
+    return <Navigate to={ROUTES.completeProfile} replace />
+  }
+
+  const onSubmit = async (values: LoginFormValues) => {
+    setFormError(null)
+    setIsSubmitting(true)
+
+    const result = await auth.signIn({
+      email: values.email,
+      password: values.password,
+      rememberMe: values.rememberMe,
+    })
+
+    setIsSubmitting(false)
+
+    if (result.error) {
+      setFormError(result.error)
+      return
+    }
+
+    // Redirects are handled by the render-phase checks above as the auth
+    // state settles, so a slow profile fetch cannot bounce the user to the
+    // wrong portal. Only show feedback here.
     toast({
-      title: 'Form validated',
-      description: `Sign-in for ${values.email} will be connected in Sprint 3. No session was created.`,
-      variant: 'info',
+      title: 'Signed in',
+      description:
+        result.phase === 'needs-profile'
+          ? 'Complete your profile to continue.'
+          : 'Your session is active.',
+      variant: 'success',
     })
   }
 
@@ -56,14 +109,20 @@ export function LoginPage() {
         </p>
       </div>
 
-      <Alert variant="info" title="UI preview — authentication is not connected" className="mb-6">
-        This form validates input locally. No credentials are sent and no session is created until
-        Sprint 3.
-      </Alert>
+      {isUnconfigured ? (
+        <Alert variant="error" title="Authentication is not configured" className="mb-6">
+          Add <code className="font-mono">VITE_NEON_AUTH_URL</code> and{' '}
+          <code className="font-mono">VITE_NEON_DATA_API_URL</code> to <code>.env</code>, then
+          restart the dev server.
+          {auth.configIssues.length > 0 ? (
+            <span className="mt-1 block">{auth.configIssues.join(' ')}</span>
+          ) : null}
+        </Alert>
+      ) : null}
 
-      {validated ? (
-        <Alert variant="success" title="Input looks valid" className="mb-6">
-          The sign-in flow will be enabled once authentication is implemented in Sprint 3.
+      {formError ? (
+        <Alert variant="error" title="Could not sign in" className="mb-6">
+          {formError}
         </Alert>
       ) : null}
 
@@ -125,32 +184,25 @@ export function LoginPage() {
             {...register('rememberMe')}
           />
           <Label htmlFor="rememberMe" className="text-sm font-normal text-muted-foreground">
-            Remember me on this device
+            Keep me signed in on this device
           </Label>
         </div>
 
-        <Button type="submit" size="lg" className="w-full">
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          isLoading={isSubmitting}
+          disabled={isUnconfigured}
+        >
           Sign in
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Button>
       </form>
 
-      <div className="my-7 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          Explore the preview
-        </span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Link to={ROUTES.admin.dashboard} className={buttonVariants({ variant: 'outline' })}>
-          Admin dashboard
-        </Link>
-        <Link to={ROUTES.member.dashboard} className={buttonVariants({ variant: 'outline' })}>
-          Member portal
-        </Link>
-      </div>
+      <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
+        Accounts are created by your group administrator. Contact them if you need access.
+      </p>
     </AuthLayout>
   )
 }

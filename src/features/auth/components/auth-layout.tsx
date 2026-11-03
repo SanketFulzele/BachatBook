@@ -81,9 +81,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/35">
-          © {new Date().getFullYear()} Bachat Book · Sprint 1 UI preview
-        </p>
+        <p className="relative text-xs text-white/35">© {new Date().getFullYear()} Bachat Book</p>
       </aside>
 
       {/* Form panel */}
@@ -92,7 +90,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           <Link to={ROUTES.login} aria-label="Bachat Book login">
             <Logo size="md" />
           </Link>
-          <span className="text-xs font-medium text-muted-foreground">Preview build</span>
+          <span className="text-xs font-medium text-muted-foreground">Secure sign-in</span>
         </div>
 
         <main
