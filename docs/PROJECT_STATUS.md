@@ -4,8 +4,20 @@
 > Update it at the end of every sprint. Never delete previous sprint history, never mark unfinished work
 > as done, and never record secret values.
 
-Last updated: **2026-11-03 (Sprint 11 deployment preparation complete; production deployment blocked on
-host/provider access, database migrations, and authenticated verification)**
+Last updated: **2026-11-04 (favicon and shared brand logo assets updated; Sprint 11 production
+deployment remains blocked on host/provider access, database migrations, and authenticated verification)**
+
+### Recent update — Favicon and shared brand logo (2026-11-04)
+
+- Replaced the previous standalone SVG favicon with the supplied ICO and PNG variants in `public/`.
+- Added `public/site.webmanifest` with the Bachat Book app metadata and supplied Android icon sizes.
+- Updated `index.html` to reference the favicon variants, Apple touch icon, and site manifest.
+- Updated the shared `Logo` component to use `public/bachat-book-logo.png`, copied from
+  `favicon-data/BachatBook.png`. This updates the mark used across the app's shared headers and screens.
+- Removed the obsolete `public/favicon.svg`, `public/manifest.webmanifest`, and
+  `public/icons/bachat-book-mark.svg` assets. The source image in `favicon-data/` remains unchanged.
+- Updated the README asset tree and this handoff. `npm run build`, Prettier checks, `git diff --check`,
+  and checks that the new assets are present in `dist/` passed.
 
 ---
 
@@ -93,7 +105,8 @@ Legend: Not Started · In Progress · Completed · Blocked · Merged · Dropped.
 - `eslint.config.js`: flat config with `js.configs.recommended`, `typescript-eslint` recommended,
   React Hooks and React Refresh rules.
 - `.prettierrc.json`, `.gitignore`, `.env.example`, `index.html` (metadata, Inter font, manifest,
-  favicon), `public/manifest.webmanifest`, `public/icons/bachat-book-mark.svg`, `public/favicon.svg`.
+  favicon), `public/site.webmanifest`, the PNG/ICO favicon assets in `public/`, and
+  `public/bachat-book-logo.png`.
 - npm scripts: `dev`, `build` (`tsc -b && vite build`), `typecheck`, `lint`, `preview`, `format`,
   `format:check`.
 

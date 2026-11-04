@@ -83,7 +83,8 @@ Run these checks only after the database and application are configured. Use a s
 test branch and test accounts for financial workflows; do not create fake payments or payouts in
 real family records.
 
-- Confirm HTTPS, no browser-console errors, app assets, manifest and icons load.
+- Confirm HTTPS, no browser-console errors, app assets, ICO/PNG favicons, Apple touch icon, shared
+  Bachat Book logo, web manifest and its Android icons load.
 - Refresh a deep link and navigate between login, reset-password, and authenticated routes.
 - Test admin and member login/logout and password reset with real controlled accounts.
 - Verify admin access and member read-only isolation using authenticated sessions.
@@ -120,4 +121,4 @@ real family records.
 | Remote public smoke checks        | Root login loaded at 390px with no horizontal overflow/console errors; direct app routes return 404                   |
 | Authenticated smoke tests         | Not run                                                                                                               |
 | Backup retention / restore        | Not verified against the production Neon plan                                                                         |
-| PWA                               | Web manifest and icons exist; no service worker/offline caching is configured                                         |
+| PWA                               | `public/site.webmanifest` and favicon/install icons exist; no service worker/offline caching is configured            |

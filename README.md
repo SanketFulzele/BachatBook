@@ -286,9 +286,14 @@ the same destinations into the header. The profile menu holds the only link to t
 │   ├── AUTHENTICATION.md          # Sessions, guards, onboarding, password reset
 │   └── DATABASE_ARCHITECTURE.md   # Tables, RLS, migrations, provisioning
 ├── public/
-│   ├── favicon.svg
-│   ├── manifest.webmanifest
-│   └── icons/bachat-book-mark.svg
+│   ├── favicon.ico
+│   ├── favicon-16x16.png
+│   ├── favicon-32x32.png
+│   ├── apple-touch-icon.png
+│   ├── android-chrome-192x192.png
+│   ├── android-chrome-512x512.png
+│   ├── bachat-book-logo.png
+│   └── site.webmanifest
 ├── scripts/
 │   └── generate-types.mjs         # Neon type generator wrapper
 ├── src/
@@ -325,6 +330,13 @@ the same destinations into the header. The profile menu holds the only link to t
 ```
 
 The `@/*` path alias maps to `src/*` in both TypeScript and Vite.
+
+### Brand and favicon assets
+
+The browser favicon variants, Apple touch icon, Android install icons, and `site.webmanifest` are served
+from `public/`. The shared `Logo` component uses `public/bachat-book-logo.png` (the supplied
+`favicon-data/BachatBook.png`) throughout the app. The older standalone SVG favicon and SVG logo mark
+have been removed.
 
 ---
 
