@@ -8,7 +8,6 @@ export function MemberLayout() {
       homeHref={ROUTES.member.dashboard}
       roleLabel="Member"
       navigation={memberNavigation}
-      desktopNavigation={memberNavigation}
       drawerNavigation={memberDrawerNavigation}
     />
   )

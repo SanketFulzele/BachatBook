@@ -21,15 +21,6 @@ export const adminNavigation: NavigationItem[] = [
   { label: 'Payments', href: ROUTES.admin.payments, icon: CreditCard },
 ]
 
-export const adminDesktopNavigation: NavigationItem[] = [
-  { label: 'Dashboard', href: ROUTES.admin.dashboard, icon: LayoutDashboard },
-  { label: 'Groups', href: ROUTES.admin.groups, icon: UsersRound },
-  { label: 'Members', href: ROUTES.admin.members, icon: UsersRound },
-  { label: 'Payments', href: ROUTES.admin.payments, icon: CreditCard },
-  { label: 'Installments', href: ROUTES.admin.installments, icon: CalendarDays },
-  { label: 'Payouts', href: ROUTES.admin.payouts, icon: Wallet },
-]
-
 export const adminDrawerNavigation: NavigationItem[] = [
   { label: 'Installments', href: ROUTES.admin.installments, icon: CalendarDays },
   { label: 'Payouts', href: ROUTES.admin.payouts, icon: Wallet },
