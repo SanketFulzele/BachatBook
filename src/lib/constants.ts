@@ -14,7 +14,9 @@ export const ROUTES = {
   admin: {
     dashboard: '/admin/dashboard',
     groups: '/admin/groups',
+    members: '/admin/members',
     userManagement: '/admin/user-management',
+    memberLedger: (memberId: string) => `/admin/members/${memberId}/ledger`,
     group: (groupId: string) => `/admin/groups/${groupId}`,
     installments: '/admin/installments',
     payments: '/admin/payments',
@@ -27,6 +29,7 @@ export const ROUTES = {
     installments: '/member/installments',
     payments: '/member/payments',
     profile: '/member/profile',
+    ledger: '/member/ledger',
   },
 } as const
 

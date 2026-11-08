@@ -4,36 +4,97 @@ import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast-context'
 import { Field } from './field'
-import { useCreateCycleDraft } from '../hooks/use-bhishi'
-import { currentMonthISO, cycleDefaultName, cycleStartDate } from '../lib/dates'
-import type { GroupView } from '../types'
+import { useCreateCycleDraft, useUpdateScheduledCycle } from '../hooks/use-bhishi'
+import { currentMonthISO, cycleDefaultName, cycleStartDate, todayISO } from '../lib/dates'
+import type { CycleView, GroupView } from '../types'
 
 interface CreateCycleDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   group: GroupView
+  cycle?: CycleView
 }
 
 /** The form only mounts while open, so the draft defaults start fresh each time. */
-export function CreateCycleDialog({ open, onOpenChange, group }: CreateCycleDialogProps) {
+export function CreateCycleDialog({ open, onOpenChange, group, cycle }: CreateCycleDialogProps) {
   if (!open) return null
-  return <CreateCycleForm group={group} onClose={() => onOpenChange(false)} />
+  return (
+    <CreateCycleForm
+      key={cycle?.cycle.id ?? 'new'}
+      group={group}
+      cycle={cycle}
+      onClose={() => onOpenChange(false)}
+    />
+  )
 }
 
-function CreateCycleForm({ group, onClose }: { group: GroupView; onClose: () => void }) {
+function nextCycleMonth(group: GroupView): string {
+  const previousCycle =
+    group.activeCycle ?? group.cycles.find((entry) => entry.cycle.status === 'completed') ?? null
+
+  if (previousCycle) {
+    const start = previousCycle.cycle.start_date
+    const nextMonth = new Date(
+      Date.UTC(
+        Number(start.slice(0, 4)),
+        Number(start.slice(5, 7)) - 1 + previousCycle.cycle.duration_months,
+        1,
+      ),
+    )
+    return `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, '0')}`
+  }
+
+  const currentMonth = currentMonthISO()
+  const today = todayISO()
+  if (Number(today.slice(8, 10)) <= group.group.collection_day) return currentMonth
+
+  const nextMonth = new Date(
+    Date.UTC(Number(currentMonth.slice(0, 4)), Number(currentMonth.slice(5, 7)), 1),
+  )
+  return `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+function CreateCycleForm({
+  group,
+  cycle,
+  onClose,
+}: {
+  group: GroupView
+  cycle?: CycleView
+  onClose: () => void
+}) {
   const { toast } = useToast()
-  const mutation = useCreateCycleDraft()
+  const createMutation = useCreateCycleDraft()
+  const updateMutation = useUpdateScheduledCycle()
   const activeMembers = group.members.filter(
     (membership) => membership.membership.status === 'active' && membership.member.is_active,
   )
-  const initialMonth = currentMonthISO()
+  const currentActiveMemberIds = new Set(activeMembers.map((membership) => membership.member.id))
+  const initialMonth = cycle ? cycle.cycle.start_date.slice(0, 7) : nextCycleMonth(group)
   const [month, setMonth] = useState(initialMonth)
-  const [name, setName] = useState(() =>
-    cycleDefaultName(group.group.name, Number(initialMonth.slice(0, 4))),
+  const [name, setName] = useState(
+    cycle?.cycle.name ?? cycleDefaultName(group.group.name, Number(initialMonth.slice(0, 4))),
   )
-  const [contribution, setContribution] = useState(String(group.group.contribution_amount))
-  const [collectionDay, setCollectionDay] = useState(String(group.group.collection_day))
+  const [contribution, setContribution] = useState(
+    String(cycle?.cycle.contribution_amount_snapshot ?? group.group.contribution_amount),
+  )
+  const [collectionDay, setCollectionDay] = useState(
+    String(cycle?.cycle.collection_day_snapshot ?? group.group.collection_day),
+  )
+  const [selectedMemberIds, setSelectedMemberIds] = useState(() =>
+    cycle
+      ? cycle.members
+          .filter((entry) => currentActiveMemberIds.has(entry.member.id))
+          .map((entry) => entry.member.id)
+      : activeMembers.map((membership) => membership.member.id),
+  )
   const [error, setError] = useState<string | null>(null)
+  const isPending = createMutation.isPending || updateMutation.isPending
+  const dialogTitle = cycle
+    ? 'Edit scheduled cycle'
+    : group.cycles.some((entry) => entry.cycle.status !== 'cancelled')
+      ? 'Create next cycle'
+      : 'Create cycle'
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -47,8 +108,8 @@ function CreateCycleForm({ group, onClose }: { group: GroupView; onClose: () => 
       setError('Choose the month the cycle starts.')
       return
     }
-    if (activeMembers.length < 2) {
-      setError('Add at least two active members before creating a cycle.')
+    if (selectedMemberIds.length < 2) {
+      setError('Select at least two active group members for this cycle.')
       return
     }
 
@@ -64,26 +125,29 @@ function CreateCycleForm({ group, onClose }: { group: GroupView; onClose: () => 
       return
     }
 
-    mutation.mutate(
-      {
-        groupId: group.group.id,
-        name: name.trim(),
-        startDate: cycleStartDate(month, day),
-        contributionAmount: amount,
-        collectionDay: day,
-      },
-      {
-        onSuccess: () => {
-          toast({
-            title: 'Cycle draft created',
-            description: 'Review the chit order, then activate the cycle.',
-            variant: 'success',
-          })
-          onClose()
-        },
-        onError: (mutationError) => setError(mutationError.message),
-      },
-    )
+    const onSuccess = () => {
+      toast({
+        title: cycle ? 'Scheduled cycle updated' : 'Cycle scheduled',
+        description:
+          'Review the chit order. The cycle activates on its start date after prior cycles complete.',
+        variant: 'success',
+      })
+      onClose()
+    }
+    const onError = (mutationError: Error) => setError(mutationError.message)
+    const input = {
+      name: name.trim(),
+      startDate: cycleStartDate(month, day),
+      contributionAmount: amount,
+      collectionDay: day,
+      memberIds: selectedMemberIds,
+    }
+
+    if (cycle) {
+      updateMutation.mutate({ ...input, cycleId: cycle.cycle.id }, { onSuccess, onError })
+    } else {
+      createMutation.mutate({ ...input, groupId: group.group.id }, { onSuccess, onError })
+    }
   }
 
   return (
@@ -93,15 +157,15 @@ function CreateCycleForm({ group, onClose }: { group: GroupView; onClose: () => 
         if (!next) onClose()
       }}
       size="lg"
-      title="Create cycle"
-      description="Set the month, contribution and collection day. The chit order can be changed before activation."
+      title={dialogTitle}
+      description="Set the start month, contribution, collection day and participating members. The cycle remains financially inactive until its scheduled start date."
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="create-cycle-form" isLoading={mutation.isPending}>
-            Save draft
+          <Button type="submit" form="create-cycle-form" isLoading={isPending}>
+            {cycle ? 'Save schedule' : 'Schedule cycle'}
           </Button>
         </>
       }
@@ -162,25 +226,44 @@ function CreateCycleForm({ group, onClose }: { group: GroupView; onClose: () => 
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">Participating members ({activeMembers.length})</p>
+          <p className="text-sm font-medium">Participating members ({selectedMemberIds.length})</p>
           <p className="text-xs text-muted-foreground">
-            Every active member of this group takes part. The order can be changed after saving.
+            Select at least two active group members. Arrange their chit order after saving.
           </p>
           <div className="divide-y divide-border rounded-xl border border-border">
             {activeMembers.map((membership) => (
-              <div key={membership.member.id} className="px-3 py-2.5">
-                <p className="truncate text-sm font-medium">{membership.member.full_name}</p>
-                {membership.member.phone ? (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {membership.member.phone}
-                  </p>
-                ) : null}
-              </div>
+              <label
+                key={membership.member.id}
+                className="flex cursor-pointer items-center gap-3 px-3 py-2.5"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedMemberIds.includes(membership.member.id)}
+                  onChange={(event) =>
+                    setSelectedMemberIds((selected) =>
+                      event.target.checked
+                        ? [...selected, membership.member.id]
+                        : selected.filter((memberId) => memberId !== membership.member.id),
+                    )
+                  }
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">
+                    {membership.member.full_name}
+                  </span>
+                  {membership.member.phone ? (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {membership.member.phone}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
             ))}
           </div>
         </div>
 
-        {activeMembers.length < 2 ? (
+        {selectedMemberIds.length < 2 ? (
           <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning-foreground">
             A cycle needs at least two active members.
           </p>

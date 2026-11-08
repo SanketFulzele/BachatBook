@@ -25,6 +25,7 @@ import { useToast } from '@/components/ui/toast-context'
 import { PageLoading } from '@/components/feedback/page-loading'
 import { ROUTES } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { todayISO } from '@/features/bhishi/lib/dates'
 import { useAuth } from '@/features/auth/components/auth-context'
 import { ActivateCycleDialog } from '@/features/bhishi/components/activate-cycle-dialog'
 import { AddMemberDialog } from '@/features/bhishi/components/add-member-dialog'
@@ -43,7 +44,7 @@ import {
   useDeleteEmptyGroup,
 } from '@/features/bhishi/hooks/use-bhishi'
 import { cycleProgress, paymentOptions, payoutOptions } from '@/features/bhishi/lib/derive'
-import type { InstallmentView, MemberRow, ObligationView } from '@/features/bhishi/types'
+import type { CycleView, InstallmentView, MemberRow, ObligationView } from '@/features/bhishi/types'
 
 const groupStatusLabel = {
   draft: { label: 'Not started', variant: 'warning' as const },
@@ -57,11 +58,12 @@ export function GroupDetailPage() {
   const navigate = useNavigate()
   const auth = useAuth()
   const { toast } = useToast()
-  const query = useBhishiData()
+  const query = useBhishiData(true)
   const archiveMutation = useArchiveGroup()
   const deleteMutation = useDeleteEmptyGroup()
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [createCycleOpen, setCreateCycleOpen] = useState(false)
+  const [editingScheduledCycle, setEditingScheduledCycle] = useState<CycleView | null>(null)
   const [activateCycleOpen, setActivateCycleOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [payoutOpen, setPayoutOpen] = useState(false)
@@ -116,10 +118,31 @@ export function GroupDetailPage() {
   const summaryCycle = activeCycle ?? draftCycle
   const progress = activeCycle ? cycleProgress(activeCycle) : null
   const previousCycles = group.cycles.filter(
-    (cycle) => cycle.cycle.status !== 'draft' && cycle.cycle.id !== activeCycle?.cycle.id,
+    (cycle) =>
+      cycle.cycle.status !== 'draft' &&
+      cycle.cycle.status !== 'active' &&
+      cycle.cycle.id !== activeCycle?.cycle.id,
   )
-  const incompletePrevious = previousCycles.some((cycle) => cycle.cycle.status !== 'completed')
   const hasCycleHistory = previousCycles.length > 0
+  const scheduledCycleIsScheduled = Boolean(
+    draftCycle && (activeCycle || draftCycle.cycle.start_date > todayISO()),
+  )
+  const activeCycleIsComplete = Boolean(
+    activeCycle &&
+    activeCycle.installments.length === activeCycle.cycle.duration_months &&
+    activeCycle.installments.every(
+      (installment) =>
+        installment.obligations.every((obligation) => obligation.remaining === 0) &&
+        installment.payout !== null,
+    ),
+  )
+  const scheduledCycleBlocked = Boolean(
+    isAdmin &&
+    draftCycle &&
+    draftCycle.cycle.start_date <= todayISO() &&
+    activeCycle &&
+    !activeCycleIsComplete,
+  )
   const linkedProfileIds = new Set(
     snapshot.members
       .map((member) => member.profile_id)
@@ -134,6 +157,17 @@ export function GroupDetailPage() {
   const openPayout = (installment?: InstallmentView) => {
     setInitialInstallmentId(installment?.installment.id)
     setPayoutOpen(true)
+  }
+
+  const openCreateCycle = () => {
+    setEditingScheduledCycle(null)
+    setCreateCycleOpen(true)
+  }
+
+  const openEditScheduledCycle = () => {
+    if (!draftCycle || !isAdmin) return
+    setEditingScheduledCycle(draftCycle)
+    setCreateCycleOpen(true)
   }
 
   const archiveGroup = () => {
@@ -186,14 +220,9 @@ export function GroupDetailPage() {
                 >
                   Add member
                 </Button>
-                {!activeCycle && !draftCycle ? (
-                  <Button
-                    size="lg"
-                    onClick={() => setCreateCycleOpen(true)}
-                    disabled={incompletePrevious}
-                    title={incompletePrevious ? 'Complete the previous cycle first' : undefined}
-                  >
-                    {hasCycleHistory ? 'Create next cycle' : 'Create cycle'}
+                {isAdmin && !draftCycle ? (
+                  <Button size="lg" onClick={openCreateCycle}>
+                    {activeCycle || hasCycleHistory ? 'Create next cycle' : 'Create cycle'}
                   </Button>
                 ) : null}
               </>
@@ -312,14 +341,22 @@ export function GroupDetailPage() {
         )}
       </section>
 
+      {scheduledCycleBlocked ? (
+        <Alert variant="warning" title="Scheduled cycle is waiting">
+          The start date has arrived, but {activeCycle?.cycle.name ?? 'the current cycle'} still has
+          outstanding payments or payouts. Resolve the current cycle; the scheduled cycle will
+          activate automatically once the current cycle is complete.
+        </Alert>
+      ) : null}
+
       {draftCycle ? (
         <section className="space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold text-secondary">{draftCycle.cycle.name}</h2>
-                <Badge variant="warning" withDot>
-                  Draft
+                <Badge variant={scheduledCycleIsScheduled ? 'warning' : 'neutral'} withDot>
+                  {scheduledCycleIsScheduled ? 'Scheduled' : 'Draft'}
                 </Badge>
               </div>
               <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -329,17 +366,26 @@ export function GroupDetailPage() {
                 {draftCycle.cycle.collection_day_snapshot}
               </p>
             </div>
-            {!isArchived ? (
-              <Button size="lg" onClick={() => setActivateCycleOpen(true)}>
-                Activate cycle
-              </Button>
+            {isAdmin && !isArchived ? (
+              <div className="flex flex-wrap gap-2">
+                {scheduledCycleIsScheduled ? (
+                  <Button size="sm" variant="outline" onClick={openEditScheduledCycle}>
+                    Edit scheduled cycle
+                  </Button>
+                ) : (
+                  <Button size="lg" onClick={() => setActivateCycleOpen(true)}>
+                    Activate cycle
+                  </Button>
+                )}
+              </div>
             ) : null}
           </div>
 
           {!isArchived ? (
             <div className="rounded-xl bg-muted/60 px-3.5 py-2.5 text-sm text-muted-foreground">
-              Arrange the order below, then activate. Members cannot see this cycle until it is
-              activated.
+              {scheduledCycleIsScheduled
+                ? `This cycle has no payment obligations yet. It will activate automatically on ${formatDate(draftCycle.cycle.start_date)} after earlier cycles are complete.`
+                : 'Arrange the order below, then activate. Members cannot see this cycle until it is activated.'}
             </div>
           ) : null}
 
@@ -354,8 +400,19 @@ export function GroupDetailPage() {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : isAdmin ? (
             <ChitOrderEditor cycle={draftCycle} />
+          ) : (
+            <div className="divide-y divide-border rounded-xl border border-border bg-card">
+              {draftCycle.members.map((entry) => (
+                <div key={entry.cycleMember.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+                    {entry.cycleMember.chit_number}
+                  </span>
+                  <span className="truncate text-sm font-medium">{entry.member.full_name}</span>
+                </div>
+              ))}
+            </div>
           )}
         </section>
       ) : null}
@@ -367,7 +424,7 @@ export function GroupDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold text-secondary">{activeCycle.cycle.name}</h2>
                 <Badge variant="success" withDot>
-                  Active
+                  Current active cycle
                 </Badge>
               </div>
               <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -459,7 +516,7 @@ export function GroupDetailPage() {
         </section>
       ) : null}
 
-      {!isArchived && !activeCycle && !draftCycle && previousCycles.length === 0 ? (
+      {!isArchived && isAdmin && !activeCycle && !draftCycle && previousCycles.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 p-6 text-center sm:p-7">
             <h2 className="text-base font-semibold text-secondary">
@@ -470,13 +527,7 @@ export function GroupDetailPage() {
                 ? 'The previous cycle is complete. Choose a new start month, contribution amount and chit order to begin the next cycle.'
                 : 'Add all members, then create the cycle. You can review the chit order before activating it.'}
             </p>
-            <Button
-              className="mt-2"
-              size="lg"
-              onClick={() => setCreateCycleOpen(true)}
-              disabled={incompletePrevious}
-              title={incompletePrevious ? 'Complete the previous cycle first' : undefined}
-            >
+            <Button className="mt-2" size="lg" onClick={openCreateCycle}>
               {hasCycleHistory ? 'Create next cycle' : 'Create cycle'}
             </Button>
           </CardContent>
@@ -529,8 +580,16 @@ export function GroupDetailPage() {
         groupId={group.group.id}
         groupName={group.group.name}
       />
-      <CreateCycleDialog open={createCycleOpen} onOpenChange={setCreateCycleOpen} group={group} />
-      {draftCycle ? (
+      <CreateCycleDialog
+        open={createCycleOpen}
+        onOpenChange={(open) => {
+          setCreateCycleOpen(open)
+          if (!open) setEditingScheduledCycle(null)
+        }}
+        group={group}
+        cycle={editingScheduledCycle ?? undefined}
+      />
+      {draftCycle && isAdmin ? (
         <ActivateCycleDialog
           open={activateCycleOpen}
           onOpenChange={setActivateCycleOpen}

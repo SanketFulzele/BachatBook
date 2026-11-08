@@ -615,6 +615,17 @@ export type Database = {
         }
         Returns: string
       }
+      create_scheduled_cycle: {
+        Args: {
+          collection_day: number
+          contribution_amount: number
+          cycle_name: string
+          cycle_start_date: string
+          participating_member_ids: string[]
+          target_group_id: string
+        }
+        Returns: string
+      }
       current_profile_id: { Args: never; Returns: string }
       cycle_installment_due_date: {
         Args: {
@@ -682,6 +693,17 @@ export type Database = {
       try_complete_cycle: {
         Args: { target_cycle_id: string }
         Returns: boolean
+      }
+      update_scheduled_cycle: {
+        Args: {
+          collection_day: number
+          contribution_amount: number
+          cycle_name: string
+          cycle_start_date: string
+          participating_member_ids: string[]
+          target_cycle_id: string
+        }
+        Returns: string
       }
       update_user_access: {
         Args: {

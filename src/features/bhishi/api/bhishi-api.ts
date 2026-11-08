@@ -186,13 +186,36 @@ export async function createCycleDraft(input: {
   startDate: string
   contributionAmount: number
   collectionDay: number
+  memberIds: string[]
 }): Promise<string> {
-  const { data, error } = await getNeonDataApi().rpc('create_cycle_draft', {
+  const { data, error } = await getNeonDataApi().rpc('create_scheduled_cycle', {
     target_group_id: input.groupId,
     cycle_name: input.name,
     cycle_start_date: input.startDate,
     contribution_amount: input.contributionAmount,
     collection_day: input.collectionDay,
+    participating_member_ids: input.memberIds,
+  })
+
+  if (error) fail(error)
+  return data
+}
+
+export async function updateScheduledCycle(input: {
+  cycleId: string
+  name: string
+  startDate: string
+  contributionAmount: number
+  collectionDay: number
+  memberIds: string[]
+}): Promise<string> {
+  const { data, error } = await getNeonDataApi().rpc('update_scheduled_cycle', {
+    target_cycle_id: input.cycleId,
+    cycle_name: input.name,
+    cycle_start_date: input.startDate,
+    contribution_amount: input.contributionAmount,
+    collection_day: input.collectionDay,
+    participating_member_ids: input.memberIds,
   })
 
   if (error) fail(error)

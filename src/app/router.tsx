@@ -108,6 +108,24 @@ const MemberInstallmentsPage = lazy(() =>
   })),
 )
 
+const AdminMembersPage = lazy(() =>
+  import('@/features/members/pages/admin-members-page').then((module) => ({
+    default: module.AdminMembersPage,
+  })),
+)
+
+const AdminMemberLedgerPage = lazy(() =>
+  import('@/features/members/pages/admin-member-ledger-page').then((module) => ({
+    default: module.AdminMemberLedgerPage,
+  })),
+)
+
+const MemberLedgerPage = lazy(() =>
+  import('@/features/members/pages/member-ledger-page').then((module) => ({
+    default: module.MemberLedgerPage,
+  })),
+)
+
 const UserManagementPage = lazy(() =>
   import('@/features/users/pages/user-management-page').then((module) => ({
     default: module.UserManagementPage,
@@ -141,6 +159,8 @@ export const router = createBrowserRouter([
               { path: 'dashboard', element: <DashboardPage /> },
               { path: 'groups', element: <GroupsPage /> },
               { path: 'groups/:groupId', element: <GroupDetailPage /> },
+              { path: 'members', element: <AdminMembersPage /> },
+              { path: 'members/:memberId/ledger', element: <AdminMemberLedgerPage /> },
               { path: 'user-management', element: <UserManagementPage /> },
               { path: 'installments', element: <InstallmentsPage /> },
               { path: 'payments', element: <PaymentsPage /> },
@@ -162,6 +182,7 @@ export const router = createBrowserRouter([
               { path: 'groups', element: <MemberGroupsPage /> },
               { path: 'installments', element: <MemberInstallmentsPage /> },
               { path: 'payments', element: <MemberPaymentsPage /> },
+              { path: 'ledger', element: <MemberLedgerPage /> },
               { path: 'profile', element: <ProfilePage /> },
             ],
           },

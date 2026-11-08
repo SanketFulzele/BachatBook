@@ -783,11 +783,19 @@ there with 17 rollback-only checks covering the full Cycle 1 → Cycle 2 workflo
 
 ### Apply
 
-```bash
-for file in db/migrations/*.sql; do
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file" || exit 1
-done
+Preferred — automatic Node-based runner (`scripts/migrate.mjs`). It verifies the target host,
+tracks applied migrations in `public.__bachatbook_migrations`, never re-applies a migration and
+stops on the first error:
+
+```powershell
+# Preview the plan
+npm run migrate:dry-run
+
+# Apply every missing migration, in order
+npm run migrate
 ```
+
+Fallback — manual SQL (kept for audit/reference only):
 
 ```powershell
 Get-ChildItem db/migrations/*.sql | Sort-Object Name | ForEach-Object {

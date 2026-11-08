@@ -14,10 +14,15 @@
    the production database.
 3. Check the current database backup/PITR retention and restore options for the Neon plan. Record the
    operator and the recovery point before changing production.
-4. Review and apply migrations `00011`–`00019` to the confirmed production branch in numeric order using the
-   direct connection string and a trusted SQL client or protected CI job. Stop on the first failure.
-   Never put `DATABASE_URL` in frontend hosting settings. Verify the resulting schema, policies, and
-   functions using the queries in [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md).
+4. Apply only the new migrations with the automatic runner, never the whole chain; record them in
+   `db/migrations/README.md`, then verify with [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md):
+
+   ```powershell
+   npm run migrate         # applies only files not yet recorded in public.__bachatbook_migrations
+   npm run migrate:dry-run # preview the plan without applying anything
+   npm run generate-types  # refresh browser types if functions/signatures changed
+   ```
+
    Migration `00014` includes the owner-bound one-time initial-admin flow. Confirm its configured
    Neon Auth user ID is the intended existing account before applying; do not substitute another
    account or use the flow to create a new Neon Auth user. If an application Admin already exists,
@@ -26,6 +31,7 @@
    members to a group. Migration `00016` rebuilds both cycle-activation functions to exclude installment
    recipients from their own obligations and rebuilds `record_payout()` to refuse when contributions
    remain outstanding; review before applying to a branch holding live cycles. Migration `00017` adds lifecycle RPCs and archived-write guards; review it before applying as well. Migration `00018` adds group-scoped `record_group_payment()`; review it before applying to a branch with live cycles. Migration `00019` adds automatic cycle completion and the guarded next-cycle rule; review it before applying.
+
 5. Regenerate database types from the migrated target schema with `npm run generate-types`; review
    the generated diff before including it in the release.
 6. Run the release checks:

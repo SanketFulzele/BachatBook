@@ -25,6 +25,31 @@ roles and the `auth.user_id()` identity function).
 | `00017_group_delete_and_archive.sql`              | Admin-only empty-group deletion and history-preserving archive RPCs; blocks archived writes   | **Applied**                   |
 | `00018_record_payment_in_group.sql`               | Trusted admin-only RPC `record_group_payment()` with expected-group validation                | **Applied**                   |
 | `00019_complete_cycle_and_next_cycle.sql`         | Cycle auto-completion on payment/payout and guarded next-cycle creation                       | **Applied**                   |
+| `00020_scheduled_next_cycles.sql`                 | Admin-scheduled next cycles and date-based activation through `pg_cron`                       | **New — not applied**         |
+
+## Migration workflow (automatic runner)
+
+Migrations are applied with a Node runner. No manual SQL is needed:
+
+```powershell
+# Preview what would RUN and what is already applied
+npm run migrate:dry-run
+
+# Apply every missing migration, in order
+npm run migrate
+```
+
+The runner reads `DATABASE_URL` from the environment (or `.env`), verifies the host before
+any writes, wraps each file in a transaction, tracks applied files in `public.__bachatbook_migrations`
+and skips anything already applied.
+
+- On a **fresh** database (local or a new hosted branch), `npm run migrate` applies `00001`–`00020`
+  in order.
+- On the **existing** production branch (already at `00019`), the first run simply records the
+  applied files — it does not re-run them.
+- After any new migration (e.g. `00020_...sql`), just run `npm run migrate`.
+- If you also change a function/signature, regenerate browser types with `npm run generate-types`.
+- Vite dev and the production build never run migrations automatically.
 
 ## Migration history
 
@@ -36,7 +61,7 @@ preserve.
 The original seven files are archived verbatim in
 [`../legacy/sprint-2-supabase-baseline/`](../legacy/sprint-2-supabase-baseline/) for reference.
 They must **not** be applied to a Neon database. The files in this directory are the Neon baseline,
-followed by migrations `00008`–`00019`.
+followed by migrations `00008`–`00020`.
 
 `00009` is the first migration that adds a write workflow rather than a table: it wraps cycle
 activation in one `SECURITY DEFINER` transaction so a half-generated schedule can never be left
@@ -116,6 +141,15 @@ cycle exists in the group, and rebuilds `record_group_payment()` with the same c
 schema changes; all changes are functions. Applied to hosted on 2026-11-08 and verified there with
 17 rollback-only checks covering the full Cycle 1 → Cycle 2 workflow.
 
+`00020` adds `create_scheduled_cycle()` and `update_scheduled_cycle()` for admin-selected
+participants. A scheduled cycle stays a financially inert `draft` until its India-local start date.
+The migration installs `pg_cron` and schedules a database job every five minutes to
+complete a ready active cycle and activate a due next cycle, only when all earlier cycles are
+complete. An incomplete active cycle leaves the next cycle scheduled; the group page shows the
+blocking status to admins. Apply only after `00019`; it has **not** been applied or verified against
+the hosted branch yet. The Neon branch must allow the `pg_cron` extension. The processor accepts
+an optional `as_of_date` for controlled-date database tests.
+
 ## Prerequisites
 
 1. The Neon project/branch exists.
@@ -127,7 +161,8 @@ schema changes; all changes are functions. Applied to hosted on 2026-11-08 and v
    its payout gate; review it before applying to a branch that holds live cycles. `00017` adds
    lifecycle RPCs and archived-write guards; review it before applying as well. `00018` adds
    group-scoped payment recording; apply after `00017`. `00019` adds automatic cycle completion and
-   the guarded next-cycle rule; review it before applying.
+   the guarded next-cycle rule; review it before applying. `00020` requires the `pg_cron` extension
+   for automatic date-based activation and must be applied after `00019`.
 4. `DATABASE_URL` points at the branch using the **direct** (non-pooled) connection string, and is
    available only to your shell / CI, never to browser code.
 
@@ -135,18 +170,11 @@ schema changes; all changes are functions. Applied to hosted on 2026-11-08 and v
 
 ```bash
 # Bash
-for file in db/migrations/*.sql; do
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file" || exit 1
-done
+npm run migrate
+npm run migrate:dry-run
 ```
 
-```powershell
-# PowerShell
-Get-ChildItem db/migrations/*.sql | Sort-Object Name | ForEach-Object {
-  psql $env:DATABASE_URL -v ON_ERROR_STOP=1 -f $_.FullName
-  if ($LASTEXITCODE -ne 0) { throw "Migration failed: $($_.Name)" }
-}
-```
+The older `psql` one-liner remains available for incident response but is not the supported path.
 
 Do not run `neon deploy`, `neon config apply` or any remote migration command until the project is
 linked and you have explicitly approved it.

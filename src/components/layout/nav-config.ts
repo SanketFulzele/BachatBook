@@ -1,4 +1,5 @@
 import {
+  BookOpenCheck,
   CalendarDays,
   CreditCard,
   LayoutDashboard,
@@ -18,7 +19,7 @@ import { ROUTES } from '@/lib/constants'
 export const adminNavigation: NavigationItem[] = [
   { label: 'Dashboard', href: ROUTES.admin.dashboard, icon: LayoutDashboard },
   { label: 'Groups', href: ROUTES.admin.groups, icon: UsersRound },
-  { label: 'Payouts', href: ROUTES.admin.payouts, icon: Wallet },
+  { label: 'Members', href: ROUTES.admin.members, icon: UsersRound },
   { label: 'Payments', href: ROUTES.admin.payments, icon: CreditCard },
 ]
 
@@ -33,9 +34,10 @@ export const memberNavigation: NavigationItem[] = [
   { label: 'Dashboard', href: ROUTES.member.dashboard, icon: LayoutDashboard },
   { label: 'Groups', href: ROUTES.member.groups, icon: UsersRound },
   { label: 'Installments', href: ROUTES.member.installments, icon: CalendarDays },
-  { label: 'Payments', href: ROUTES.member.payments, icon: CreditCard },
+  { label: 'Ledger', href: ROUTES.member.ledger, icon: BookOpenCheck },
 ]
 
 export const memberDrawerNavigation: NavigationItem[] = [
-  { label: 'Profile', href: ROUTES.member.profile, icon: UserRound },
+  { label: 'Payments', href: ROUTES.member.payments, icon: CreditCard },
+  { label: 'My profile', href: ROUTES.member.profile, icon: UserRound },
 ]

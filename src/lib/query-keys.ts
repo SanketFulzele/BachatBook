@@ -20,6 +20,9 @@ export const queryKeys = {
     all: ['bhishi'] as const,
     /** One compact snapshot for the whole small-group app. */
     snapshot: (profileId: string) => [...queryKeys.bhishi.all, 'snapshot', profileId] as const,
+    /** Raw rows fetched straight from the database (bypassing derived views). */
+    rawSnapshot: (profileId: string) =>
+      [...queryKeys.bhishi.all, 'raw-snapshot', profileId] as const,
   },
   profiles: {
     all: ['profiles'] as const,

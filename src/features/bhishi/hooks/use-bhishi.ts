@@ -16,13 +16,14 @@ import {
   recordPayout,
   setCycleChitOrder,
   updateOwnProfile,
+  updateScheduledCycle,
   voidPayment,
   voidPayout,
 } from '../api/bhishi-api'
 import { buildSnapshot } from '../lib/derive'
 import type { ContributionPaymentMethod } from '../types'
 
-export function useBhishiData() {
+export function useBhishiData(watchScheduledCycles = false) {
   const auth = useAuth()
   const profileId = auth.user?.id ?? ''
 
@@ -30,6 +31,10 @@ export function useBhishiData() {
     queryKey: queryKeys.bhishi.snapshot(profileId),
     queryFn: async () => buildSnapshot(await fetchSnapshot(), profileId),
     enabled: Boolean(profileId),
+    refetchInterval: watchScheduledCycles
+      ? (query) =>
+          query.state.data?.groups.some((group) => Boolean(group.draftCycle)) ? 60_000 : false
+      : false,
   })
 }
 
@@ -113,7 +118,17 @@ export function useCreateCycleDraft() {
       startDate: string
       contributionAmount: number
       collectionDay: number
+      memberIds: string[]
     }) => createCycleDraft(input),
+    onSuccess: invalidate,
+  })
+}
+
+export function useUpdateScheduledCycle() {
+  const invalidate = useInvalidateBhishi()
+
+  return useMutation({
+    mutationFn: updateScheduledCycle,
     onSuccess: invalidate,
   })
 }
