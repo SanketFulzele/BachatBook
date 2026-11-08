@@ -18,6 +18,18 @@ export const loginSchema = z.object({
   rememberMe: z.boolean(),
 })
 
+export const signUpSchema = z
+  .object({
+    fullName: z.string().trim().min(2, 'Enter your full name').max(120, 'Name is too long'),
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+
 export const forgotPasswordSchema = z.object({
   email: emailSchema,
 })
@@ -44,6 +56,7 @@ export const completeProfileSchema = z.object({
 })
 
 export type LoginFormValues = z.infer<typeof loginSchema>
+export type SignUpFormValues = z.infer<typeof signUpSchema>
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>
 export type CompleteProfileFormValues = z.infer<typeof completeProfileSchema>

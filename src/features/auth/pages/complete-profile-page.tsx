@@ -100,7 +100,7 @@ export function CompleteProfilePage() {
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Your sign-in works, but no Bachat Book profile is linked to it yet. Confirm your details
-          to start using the member portal.
+          to create a member profile.
         </p>
       </div>
 
@@ -113,6 +113,11 @@ export function CompleteProfilePage() {
       {formError ? (
         <Alert variant="error" title="Could not create your profile" className="mb-6">
           {formError}
+        </Alert>
+      ) : null}
+      {!formError && auth.error ? (
+        <Alert variant="warning" title="Profile needs trusted linking" className="mb-6">
+          {auth.error}
         </Alert>
       ) : null}
 
@@ -162,8 +167,8 @@ export function CompleteProfilePage() {
         </div>
 
         <Alert variant="info" title="Member access only">
-          Self-service onboarding always creates a <strong>member</strong> profile. Administrator
-          accounts are provisioned separately through a trusted database connection.
+          Profile provisioning always creates a <strong>member</strong> profile. Roles are assigned
+          by the database, never by this form.
         </Alert>
 
         <Button type="submit" size="lg" className="w-full" isLoading={isSubmitting}>
@@ -195,6 +200,15 @@ export function CompleteProfilePage() {
           className="font-semibold text-primary underline-offset-4 hover:underline"
         >
           Return to sign in
+        </Link>
+      </p>
+      <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+        Setting up the existing first administrator?{' '}
+        <Link
+          to={ROUTES.initialAdminSetup}
+          className="font-semibold text-primary underline-offset-4 hover:underline"
+        >
+          Continue to secure setup
         </Link>
       </p>
     </AuthLayout>

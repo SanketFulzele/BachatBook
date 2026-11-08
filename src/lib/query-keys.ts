@@ -23,6 +23,7 @@ export const queryKeys = {
   },
   profiles: {
     all: ['profiles'] as const,
+    adminUsers: () => [...queryKeys.profiles.all, 'admin-users'] as const,
     detail: (profileId: string) => [...queryKeys.profiles.all, 'detail', profileId] as const,
     current: () => [...queryKeys.profiles.all, 'current'] as const,
   },

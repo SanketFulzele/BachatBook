@@ -19,6 +19,8 @@ import { ROUTES } from '@/lib/constants'
 function resolvePostLoginPath(role: AuthRole, from: string | null): string {
   const prefix = role === 'admin' ? '/admin' : '/member'
 
+  if (from === ROUTES.initialAdminSetup) return from
+
   if (from && from.startsWith(prefix) && !from.startsWith('//')) {
     return from
   }
@@ -201,7 +203,22 @@ export function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
-        Accounts are created by your group administrator. Contact them if you need access.
+        Don&apos;t have an account?{' '}
+        <Link
+          to={ROUTES.signUp}
+          className="font-semibold text-primary underline-offset-4 hover:underline"
+        >
+          Sign up
+        </Link>
+      </p>
+      <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+        First administrator?{' '}
+        <Link
+          to={ROUTES.initialAdminSetup}
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Set up existing account
+        </Link>
       </p>
     </AuthLayout>
   )

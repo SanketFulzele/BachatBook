@@ -608,6 +608,15 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_group_member: { Args: { target_group_id: string }; Returns: boolean }
+      claim_initial_admin: { Args: never; Returns: string }
+      update_user_access: {
+        Args: {
+          requested_is_active?: boolean | null
+          requested_role?: Database['public']['Enums']['user_role'] | null
+          target_profile_id: string
+        }
+        Returns: Json
+      }
       set_cycle_chit_order: {
         Args: { chit_order: Json; target_cycle_id: string }
         Returns: undefined

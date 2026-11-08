@@ -19,6 +19,7 @@ roles and the `auth.user_id()` identity function).
 | `00011_collection_day_due_dates.sql`           | Use each cycle's saved collection day for both activation paths                               | **Pending deployment**        |
 | `00012_secure_payment_operations.sql`          | Admin-only transactional payment recording/voiding and own-payment member read policy         | **Pending deployment**        |
 | `00013_secure_payout_operations.sql`           | Admin-only transactional payout recording/voiding, derived recipient and audit history        | **Pending deployment**        |
+| `00014_auth_signup_and_role_management.sql`    | Member profile provisioning, audited role/access RPCs, and identity-bound initial-admin setup | **Pending deployment**        |
 
 ## Migration history
 
@@ -30,7 +31,7 @@ preserve.
 The original seven files are archived verbatim in
 [`../legacy/sprint-2-supabase-baseline/`](../legacy/sprint-2-supabase-baseline/) for reference.
 They must **not** be applied to a Neon database. The files in this directory are the Neon baseline,
-followed by migrations `00008`–`00013`.
+followed by migrations `00008`–`00014`.
 
 `00009` is the first migration that adds a write workflow rather than a table: it wraps cycle
 activation in one `SECURITY DEFINER` transaction so a half-generated schedule can never be left
@@ -59,6 +60,14 @@ index to prevent duplicate active payouts. Voiding preserves the row, requires a
 the acting profile in both the payout and audit log. Direct Data API payout inserts/updates are
 revoked. Apply it after `00012`; no earlier migration is modified.
 
+`00014` adds `update_user_access()` for atomic role and account-status changes, blocks direct
+Data-API updates to protected profile columns, and removes direct client inserts into the audit log.
+It also updates `ensure_own_profile()` to create new profiles as members and reject conflicting email
+links. `claim_initial_admin()` is bound to the existing owner-supplied Neon Auth identity, accepts no
+identity parameters, requires exactly one matching application profile, refuses any different
+application admin, seeds the permanent completion marker when an Admin already exists, and disables
+itself after the first claim. Apply after `00013`; no earlier migration is modified.
+
 From this point on, these files are append-only. Never edit a migration that has been applied to a
 persistent Neon database; add the next numbered file instead.
 
@@ -66,7 +75,10 @@ persistent Neon database; add the next numbered file instead.
 
 1. The Neon project/branch exists.
 2. The Neon Data API is enabled (this creates `authenticated`, `anonymous` and `auth.user_id()`).
-3. `DATABASE_URL` points at the branch using the **direct** (non-pooled) connection string, and is
+3. Apply pending migrations `00011`–`00014` in order after reviewing the deployment plan and
+   confirming the target branch. `00014` includes the one-time setup for the existing initial-admin
+   identity specified by the project owner.
+4. `DATABASE_URL` points at the branch using the **direct** (non-pooled) connection string, and is
    available only to your shell / CI, never to browser code.
 
 ## Apply

@@ -214,24 +214,13 @@ Never hand-edit the generated file.
 
 ### Provision the first administrator
 
-There is intentionally no public path to `admin`. A signed-in user can create only a **member** profile
-through `ensure_own_profile()`; administrators are provisioned deliberately by an operator with the
-direct connection.
-
-1. Create the account through Neon Auth (Neon Console, or another administrative flow).
-2. Read the managed user id (read-only access to the managed schema):
-   `select id, email from neon_auth.user where email = 'admin@example.com';`
-3. Insert the application profile with the direct connection:
-
-```sql
-insert into public.profiles (auth_user_id, full_name, email, role)
-values ('<neon-auth-user-id>', 'Administrator Name', 'admin@example.com', 'admin')
-on conflict (auth_user_id) do update
-set role = 'admin', is_active = true;
-```
-
-The id and `auth_user_id` columns are immutable after creation. See the database architecture document
-for details.
+Public signup can create **member** profiles only. The first administrator uses the website's
+`/initial-admin-setup` flow, backed by migration `00014_auth_signup_and_role_management.sql`. Its
+database function is bound to the existing owner-approved Neon Auth user ID, links the single existing
+matching application profile, and permanently disables setup after the first claim. Apply and verify
+pending migrations before using this route; see
+[`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) and
+[`docs/DATABASE_ARCHITECTURE.md`](docs/DATABASE_ARCHITECTURE.md).
 
 ### Development seed
 
@@ -243,33 +232,39 @@ it never creates a fake login. Every auth-dependent column is `NULL`.
 
 ## Routes
 
-| Route               | Screen                                                                      |
-| ------------------- | --------------------------------------------------------------------------- |
-| `/`                 | Auth-aware redirect to a role dashboard, onboarding or `/login`             |
-| `/login`            | Managed Better Auth sign-in                                                 |
-| `/forgot-password`  | Requests a reset email                                                      |
-| `/reset-password`   | Completes a reset with the emailed `?token=`                                |
-| `/complete-profile` | Member onboarding via `ensure_own_profile()`                                |
-| `/admin`            | Admin-only; redirects to `/admin/dashboard`                                 |
-| `/admin/dashboard`  | Admin home: current installment, recipient, pending payments, quick actions |
-| `/admin/groups`     | Group list and create group                                                 |
-| `/admin/groups/:id` | Members, login linking, draft cycle, chit order, activation, schedule       |
-| `/admin/payments`   | Outstanding contributions and recent payments                               |
-| `/admin/payouts`    | Payout-due installments and recent payouts                                  |
-| `/admin/profile`    | Shared profile screen                                                       |
-| `/member`           | Member-only; redirects to `/member/dashboard`                               |
-| `/member/dashboard` | Member home: contribution status, totals, payout recipient                  |
-| `/member/groups`    | My group, chit order and full installment schedule                          |
-| `/member/payments`  | Full monthly schedule and personal payment history                          |
-| `/member/profile`   | Shared profile screen                                                       |
-| `*`                 | Custom 404 page                                                             |
+| Route                    | Screen                                                                      |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `/`                      | Auth-aware redirect to a role dashboard, onboarding or `/login`             |
+| `/login`                 | Managed Better Auth sign-in                                                 |
+| `/sign-up`               | Public Managed Better Auth signup; new profiles are members                 |
+| `/initial-admin-setup`   | One-time, database-restricted setup for the existing initial admin          |
+| `/forgot-password`       | Requests a reset email                                                      |
+| `/reset-password`        | Completes a reset with the emailed `?token=`                                |
+| `/complete-profile`      | Member onboarding via `ensure_own_profile()`                                |
+| `/admin`                 | Admin-only; redirects to `/admin/dashboard`                                 |
+| `/admin/dashboard`       | Admin home: current installment, recipient, pending payments, quick actions |
+| `/admin/groups`          | Group list and create group                                                 |
+| `/admin/members`         | Admin view of group members                                                 |
+| `/admin/user-management` | Search accounts and manage roles/access                                     |
+| `/admin/groups/:id`      | Members, login linking, draft cycle, chit order, activation, schedule       |
+| `/admin/payments`        | Outstanding contributions and recent payments                               |
+| `/admin/payouts`         | Payout-due installments and recent payouts                                  |
+| `/admin/profile`         | Shared profile screen                                                       |
+| `/member`                | Member-only; redirects to `/member/dashboard`                               |
+| `/member/dashboard`      | Member home: contribution status, totals, payout recipient                  |
+| `/member/groups`         | My group, chit order and full installment schedule                          |
+| `/member/installments`   | Personal installment obligations and payment status                         |
+| `/member/payments`       | Full monthly schedule and personal payment history                          |
+| `/member/profile`        | Shared profile screen                                                       |
+| `*`                      | Custom 404 page                                                             |
 
 `RequireRole` protects `/admin/*` and `/member/*`. A signed-in user with the wrong role sees an explicit
 access-denied screen. **The guard chooses a screen; it is not the security boundary.** PostgreSQL RLS
 authorizes every row and mutation. See [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md).
 
-Navigation is deliberately small. Mobile uses a bottom tab bar with large touch targets; desktop moves
-the same destinations into the header. The profile menu holds the only link to the profile screen.
+Navigation is mobile-first. Admins have Dashboard, Groups, Members and User Management, with secondary
+destinations and Profile under More. Members have Dashboard, My Groups, My Installments, My Payments and
+Profile. PostgreSQL RLS remains the authorization boundary.
 
 ---
 
@@ -487,18 +482,18 @@ browser walkthrough of the new dialogs. These need a provisioned admin/member te
 
 ## Notes & limitations
 
-- Authentication is implemented against Managed Better Auth, but successful hosted sign-in and
-  authenticated RLS have **not** been verified without a provisioned test account.
+- Signup, initial-admin setup, and role management are implemented locally. Migration `00014` is pending
+  hosted deployment, and authenticated RLS behavior has **not** been verified with two real accounts.
 - The admin and member screens are real and read the database, but they have not yet been exercised
   end-to-end against the hosted project for the same reason.
 - The seed has no auth users/profiles, so it cannot demonstrate a logged-in member until an account is
   provisioned and linked through `members.profile_id`. The group detail screen includes an admin-only
   “Link login” action for that link.
-- The dummy `aashish@bachatbook.app` administrator is not confirmed linked to `public.profiles`;
-  provisioning remains a trusted direct-SQL task. Do not create a second administrator account.
+- The existing initial administrator's complete application profile UUID and Auth link have not been
+  verified against the hosted database in this execution. Do not create another administrator account.
 - Route guards are navigation aids. PostgreSQL RLS remains the only authorization boundary.
-- `database.types.ts` was regenerated from the hosted schema after `00010`; regenerate again after any
-  further schema change with `npm run generate-types`.
+- `database.types.ts` reflects local RPC signatures but not a generator run against migration `00014`;
+  regenerate after the hosted migration is applied with `npm run generate-types`.
 - There is no UI yet to discard a cycle draft or close an active cycle, so a group cannot start its next
   cycle from the app. Use the trusted direct-SQL process until a later sprint adds these controls.
 - `npm audit` reports 12 moderate advisories in the ESLint 10 toolchain (development dependencies only);

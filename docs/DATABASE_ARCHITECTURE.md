@@ -6,7 +6,7 @@
 >
 > **Status:** the hosted Neon project **BachatBook** is provisioned (production branch active) with Neon
 > Auth and the Data API enabled. Migrations `00001`–`00010` have been applied to that branch; migrations
-> `00011`–`00013` are pending deployment. The hosted schema has all 11 application tables under RLS,
+> `00011`–`00014` are pending deployment. The hosted schema has all 11 existing application tables under RLS,
 > 31 policies (zero `DELETE` policies), and `auth.user_id()` executes successfully. Migrations
 > `00001`–`00010` were validated first on a local PostgreSQL 18.4
 > instance. Authenticated behaviour under a real session is still pending. See
@@ -81,6 +81,7 @@ db/
 │   ├── 00011_collection_day_due_dates.sql
 │   ├── 00012_secure_payment_operations.sql
 │   ├── 00013_secure_payout_operations.sql
+│   ├── 00014_auth_signup_and_role_management.sql
 │   └── README.md
 ├── legacy/
 │   └── sprint-2-supabase-baseline/   # archived original files; never apply
@@ -127,9 +128,9 @@ unique constraint gives a safe one-to-one mapping between a Neon Auth user and a
 while keeping profile ids independent. Relinking a profile to another auth user is a trusted operator
 action, not a client update.
 
-**Immutability.** The `profiles_enforce_privilege_change` trigger (migration 00005) rejects any change
-to `id` or `auth_user_id`, and rejects `role` / `is_active` changes made by a non-admin. This closes the
-column-level gap that RLS `USING` / `WITH CHECK` expressions cannot express.
+**Immutability.** The `profiles_enforce_privilege_change` trigger (migration 00014) rejects changes to
+`id`, `auth_user_id`, `role` and `is_active` outside trusted database operations. Authenticated Data API
+users can update only their own `full_name` and `phone` columns; admins use the role/access RPC.
 
 ### `bhishi_groups` — group settings
 
@@ -216,8 +217,8 @@ Integrity:
 `id`, `actor_id` (FK → profiles, `SET NULL`), `action`, `entity_type`, `entity_id`, `old_values`
 (`jsonb`), `new_values` (`jsonb`), `created_at`. No `updated_at` column by design.
 
-RLS allows administrators to `SELECT` and `INSERT` only. `UPDATE` and `DELETE` privileges are
-revoked at the table level as well.
+RLS allows administrators to `SELECT`. Client `INSERT`, `UPDATE` and `DELETE` are revoked; trusted
+database functions append audit records atomically with the operation.
 
 ---
 
@@ -324,32 +325,33 @@ All helpers are `SECURITY DEFINER`, `STABLE`, with `set search_path = ''`. `EXEC
 `auth.user_id()` returns **text**, so no UUID cast is applied to a Neon Auth id. `current_profile_id()`
 is the single place where the JWT `sub` is joined to `profiles.auth_user_id`.
 
-`enforce_profile_privilege_change()` is a `BEFORE UPDATE` trigger on `profiles`. It raises `42501` if a
-non-admin changes `role` or `is_active`, and if anyone changes `id` or `auth_user_id`.
+`enforce_profile_privilege_change()` is a `BEFORE UPDATE` trigger on `profiles`. It rejects direct
+changes to `role`, `is_active`, `id` or `auth_user_id`; only the security-definer access operations can
+make these changes.
 
 ### 9.2 Access matrix
 
-| Table                      | anonymous | member                                | admin                                            |
-| -------------------------- | --------- | ------------------------------------- | ------------------------------------------------ |
-| `profiles`                 | —         | select own; update own contact fields | select all; update all (role guarded by trigger) |
-| `bhishi_groups`            | —         | select own groups                     | select all; insert; update                       |
-| `members`                  | —         | select self + shared-group members    | select all; insert; update                       |
-| `group_members`            | —         | select own groups                     | select all; insert; update                       |
-| `cycles`                   | —         | select own groups' cycles             | select all; insert; update                       |
-| `cycle_members`            | —         | select own groups' orders             | select all; insert; update                       |
-| `installments`             | —         | select own groups' schedule           | select all; insert; update                       |
-| `contribution_obligations` | —         | select own groups' obligations        | select all; insert; update                       |
-| `payments`                 | —         | select own transactions               | select all; record / void through RPC            |
-| `payouts`                  | —         | select own groups' payouts            | select all; record / void through RPC            |
-| `audit_logs`               | —         | —                                     | select; insert                                   |
+| Table                      | anonymous | member                             | admin                                      |
+| -------------------------- | --------- | ---------------------------------- | ------------------------------------------ |
+| `profiles`                 | —         | select own; update own name/phone  | select all; own name/phone plus access RPC |
+| `bhishi_groups`            | —         | select own groups                  | select all; insert; update                 |
+| `members`                  | —         | select self + shared-group members | select all; insert; update                 |
+| `group_members`            | —         | select own groups                  | select all; insert; update                 |
+| `cycles`                   | —         | select own groups' cycles          | select all; insert; update                 |
+| `cycle_members`            | —         | select own groups' orders          | select all; insert; update                 |
+| `installments`             | —         | select own groups' schedule        | select all; insert; update                 |
+| `contribution_obligations` | —         | select own groups' obligations     | select all; insert; update                 |
+| `payments`                 | —         | select own transactions            | select all; record / void through RPC      |
+| `payouts`                  | —         | select own groups' payouts         | select all; record / void through RPC      |
+| `audit_logs`               | —         | —                                  | select; trusted function inserts           |
 
 **No table has a `DELETE` policy.** `authenticated` also has no `DELETE` table privilege anywhere.
 `audit_logs` has no `UPDATE` privilege or policy either. The migration also revokes all privileges on
 every application table from `anonymous` if that role exists.
 
-### 9.3 Profile provisioning
+### 9.3 Profile provisioning and signup
 
-`00008_add_neon_auth_profile_provisioning.sql` adds:
+`00014_auth_signup_and_role_management.sql` replaces the original function from migration 00008:
 
 ```sql
 public.ensure_own_profile(profile_full_name text, profile_phone text default null, profile_email text default null)
@@ -358,14 +360,33 @@ returns uuid
 
 - Reads the identity from `auth.user_id()`, never from a parameter.
 - Inserts a profile with `role = 'member'` hard-coded. There is no role parameter.
-- Returns the same profile id on a second call; it never duplicates or promotes a profile.
+- Requires a name and email, returns the same profile id on a second call, and refuses conflicting
+  email-to-identity links.
 - Is `SECURITY DEFINER`, revoked from `PUBLIC`, and granted only to `authenticated`.
 
-There is still **no `INSERT` policy on `profiles`** and no client path to `admin`. The function is the
-only self-service path, and it can create members only. Administrators remain a trusted manual
-provisioning step.
+The website's public signup uses Managed Better Auth. When a session exists, the app calls this function
+immediately; if email verification is configured, it runs when the verified session is first restored.
+There remains no `INSERT` policy on `profiles`, and signup can create members only.
 
-### 9.4 Cycle activation
+### 9.4 Admin access and initial setup
+
+`public.update_user_access(profile_id, role, is_active)` is the only authenticated role/status writer.
+It verifies the caller through `current_profile_id()` and `is_admin()`, rejects self-changes, locks
+competing changes, protects the last active admin, and appends the previous/new values and acting
+profile to `audit_logs`. Direct profile updates are limited to own `full_name` and `phone`; audit log
+inserts are unavailable to Data API clients.
+
+`public.claim_initial_admin()` accepts no parameters and is bound in SQL to the existing owner-supplied
+Neon Auth subject and existing profile email. It links and activates the existing profile without
+changing its UUID or contact information. A private RLS-enabled completion-marker table permanently
+disables the operation once used. It also refuses the claim if any other application admin exists or the
+matching profile is ambiguous.
+
+The web page is only the user interface for these operations; RLS and function checks remain
+authoritative. The initial-admin claim requires migration 00014 to be applied and the exact existing
+profile to be present in the hosted database.
+
+### 9.5 Cycle activation
 
 `00009_add_cycle_activation.sql` adds one write workflow:
 
@@ -389,7 +410,7 @@ public.activate_cycle(
 - Login-to-member uniqueness was already enforced by `members_profile_id_key` from `00004`; `00009` does
   not add a duplicate index.
 
-### 9.5 Cycle drafts and manual chit order
+### 9.6 Cycle drafts and manual chit order
 
 `00010_add_cycle_drafts.sql` adds the Sprint 5 workflow. It changes no table; every rule lives in
 functions and partial unique indexes.
@@ -435,14 +456,14 @@ public.activate_cycle_draft(target_cycle_id uuid) returns uuid
 Draft cycles are ordinary `cycles` rows, so RLS lets group members read them. The client hides drafts from
 member "current cycle" views; the admin group screen exposes `draftCycle` and the ordering editor.
 
-### 9.6 Why members cannot write financially
+### 9.7 Why members cannot write financially
 
 Member policies exist only for `SELECT`. There is no INSERT/UPDATE/DELETE policy for members on groups,
 memberships, cycles, installments, obligations, payments or payouts. The database — not the React route
 guard — rejects the write. This was exercised with simulated member, outsider and admin identities; see
 [Verification](#15-verification).
 
-### 9.7 Payment recording and correction
+### 9.8 Payment recording and correction
 
 `00012_secure_payment_operations.sql` adds the trusted payment write path:
 
@@ -475,7 +496,7 @@ public.void_payment(target_payment_id uuid, void_reason text) returns uuid
 - Payment status remains derived from non-voided amounts; a partial total is Pending and outstanding is
   `GREATEST(expected_amount - SUM(valid_payments), 0)`.
 
-### 9.8 Payout recording and correction
+### 9.9 Payout recording and correction
 
 `00013_secure_payout_operations.sql` adds the trusted payout write path:
 
@@ -538,37 +559,23 @@ Sprint 3 consumes both entry points through `AuthProvider`. See
 
 ## 11. Administrator provisioning
 
-There is intentionally no public path to `admin`:
+Public signups create member profiles only. The first admin uses the website's
+`/initial-admin-setup` page after migration `00014` is applied. Its
+`public.claim_initial_admin()` function accepts no user ID/email arguments and is bound in SQL to the
+existing owner-supplied Auth subject. It requires one matching existing profile, links that profile
+without changing its UUID or contact information, writes an audit row, and records a private completion
+marker. Migration `00014` seeds the marker if an application Admin already exists; otherwise, the
+claim refuses to run if any other application admin exists and permanently disables initial setup
+after a successful claim.
 
-- `profiles` has no INSERT policy and no client INSERT use case.
-- `ensure_own_profile()` hard-codes `role = 'member'`.
-- Self-promotion is blocked by the `profiles_enforce_privilege_change` trigger.
-- `anonymous` has no table privileges.
+The actual profile UUID must be confirmed from the database after migration and the website claim have
+succeeded. If the matching profile is missing or ambiguous, do not create another Neon Auth account or
+edit profile identity fields directly; inspect the hosted database and stop for trusted reconciliation.
 
-To create the first administrator, a trusted operator with the direct database connection must:
-
-1. Create the user through Neon Auth (the Neon Console or an administrative flow; there is no public
-   sign-up screen).
-2. Read the managed user id (read-only):
-   `select id, email from neon_auth.user where email = 'admin@example.com';`
-3. Insert the matching profile:
-
-```sql
-insert into public.profiles (auth_user_id, full_name, email, role)
-values ('<neon-auth-user-id>', 'Administrator Name', 'admin@example.com', 'admin')
-on conflict (auth_user_id) do update
-set role = 'admin',
-    is_active = true,
-    full_name = excluded.full_name,
-    email = excluded.email;
-```
-
-4. Confirm with
-   `select id, auth_user_id, role, is_active from public.profiles where auth_user_id = '<neon-auth-user-id>';`
-
-The `neon_auth` schema is read-only for this process; only `public.profiles` is written. For production,
-disable public email sign-up until a controlled onboarding flow exists. Even with sign-up enabled, a new
-user can only create a **member** profile.
+Later promotions, demotions and account activation changes happen through the admin-only
+`public.update_user_access()` function, which prevents self-change and removal of the final active
+administrator. The profile table's direct Data API update grant is restricted to the current user's
+name and phone. No operation deletes an Auth account or financial history.
 
 ---
 
@@ -600,10 +607,10 @@ The hosted schema reports 11 tables, RLS on all 11, 31 policies (zero `DELETE` p
 `auth.user_id()`.
 
 **Sprint 4 added `00009_add_cycle_activation.sql`** and applied it to the same hosted branch. It adds the
-`activate_cycle(...)` function described in §9.4 and changes no table, policy or grant.
+`activate_cycle(...)` function described in §9.5 and changes no table, policy or grant.
 
 **Sprint 5 added `00010_add_cycle_drafts.sql`** and applied it to the same hosted branch. It adds two
-partial unique indexes and the three draft-workflow functions described in §9.5. It changes no table,
+partial unique indexes and the three draft-workflow functions described in §9.6. It changes no table,
 column, policy or grant, and leaves `activate_cycle(...)` untouched for backward compatibility.
 
 **Sprint 6 adds `00011_collection_day_due_dates.sql`.** It replaces both activation functions so scheduled
@@ -618,8 +625,13 @@ PostgreSQL schema.
 
 **Sprint 8 adds `00013_secure_payout_operations.sql`.** It installs admin-only transactional payout
 recording and voiding, derives the recipient from the installment, writes audit entries, and revokes
-direct payout writes without weakening existing RLS. Apply it after `00012`. Migrations `00011`–`00013`
-are pending deployment and must be validated in order; no hosted database was changed.
+direct payout writes without weakening existing RLS. Apply it after `00012`.
+
+**Authentication implementation adds `00014_auth_signup_and_role_management.sql`.** It replaces the
+member-profile provisioning function, restricts profile column updates, adds audited admin access
+changes, revokes direct audit inserts, and adds the one-time identity-bound initial-admin claim.
+Migrations `00011`–`00014` are pending deployment and must be validated in order; no hosted database
+was changed for this implementation.
 
 ### Prerequisites
 
@@ -700,9 +712,9 @@ npx @neondatabase/neon-js gen-types \
 for the generator. The generated file works with the current SDK and is not hand-edited.
 
 **Generation source:** the committed file was last generated against the hosted production branch after
-migration `00010` was applied. It includes the cycle RPCs; Sprint 7 added typed `record_payment` and
-`void_payment` signatures for the pending migration. Regenerate with `npm run generate-types` after
-applying migration `00012` and commit the generated diff.
+migration `00010` was applied. It includes manually maintained signatures for later RPCs, including
+`update_user_access()` and `claim_initial_admin()`. Regenerate with `npm run generate-types` after
+applying pending migration `00014` and review/commit the generated diff.
 
 ---
 
@@ -862,7 +874,9 @@ The following still require a provisioned hosted account:
    a draft row, though not change it.
 6. **Seed has no login accounts.** It cannot demonstrate authenticated RLS without first provisioning a
    real Neon Auth user and linking a member (`members.profile_id`).
-7. **Generated types must be refreshed after schema changes.** They were regenerated from the hosted
-   branch after `00010`; regenerate after migration `00013` is applied to the target schema.
-8. **Sprint 6–8 database validation is pending.** Migrations `00011`–`00013` have not been applied or
-   exercised in PostgreSQL; hosted RLS/session and mobile-browser checks remain pending.
+7. **Generated types must be refreshed after schema changes.** The committed baseline reflects hosted
+   migration `00010`, with later RPC signatures maintained locally. Regenerate after migration `00014`
+   is applied to the target schema.
+8. **Database and authenticated validation is pending.** Migrations `00011`–`00014` have not been
+   applied or exercised in hosted PostgreSQL. Signup, initial-admin linking, role-management, RLS,
+   session and mobile-browser checks remain pending against real accounts.

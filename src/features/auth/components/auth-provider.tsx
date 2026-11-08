@@ -4,6 +4,7 @@ import { queryClient } from '@/lib/query-client'
 import {
   createOwnProfile,
   describeAuthError,
+  registerWithEmail,
   fetchOwnProfile,
   type ProfileSummary,
 } from '../api/auth-api'
@@ -16,6 +17,8 @@ import type {
   CompleteProfileResult,
   SignInInput,
   SignInResult,
+  SignUpInput,
+  SignUpResult,
 } from '../types/auth.types'
 
 /**
@@ -65,11 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authUserIdRef = useRef<string | null>(null)
   const sessionEmailRef = useRef<string | null>(null)
+  const sessionNameRef = useRef<string | null>(null)
   const profileRequestRef = useRef(0)
 
   const resetToUnauthenticated = useCallback(() => {
     authUserIdRef.current = null
     sessionEmailRef.current = null
+    sessionNameRef.current = null
     // Invalidate any in-flight profile request.
     profileRequestRef.current += 1
     queryClient.clear()
@@ -84,11 +89,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loadProfile = useCallback(
-    async (authUserId: string, sessionEmail: string | null): Promise<LoadProfileOutcome> => {
+    async (
+      authUserId: string,
+      sessionEmail: string | null,
+      sessionName: string | null,
+    ): Promise<LoadProfileOutcome> => {
       const requestId = profileRequestRef.current + 1
       profileRequestRef.current = requestId
       authUserIdRef.current = authUserId
       sessionEmailRef.current = sessionEmail
+      sessionNameRef.current = sessionName
 
       const result = await fetchOwnProfile(authUserId)
 
@@ -114,6 +124,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phase: 'error',
           error: result.error.message,
         }
+      }
+
+      if (!result.data && sessionName?.trim() && sessionEmail?.trim()) {
+        const provisioned = await createOwnProfile({
+          fullName: sessionName,
+          email: sessionEmail,
+        })
+
+        if (profileRequestRef.current !== requestId) {
+          return { user: null, phase: 'loading', error: null }
+        }
+
+        if (provisioned.error) {
+          if (provisioned.error.expired) {
+            resetToUnauthenticated()
+            return { user: null, phase: 'unauthenticated', error: provisioned.error.message }
+          }
+
+          setState((previous) => ({
+            ...previous,
+            phase: 'needs-profile',
+            user: null,
+            error: provisioned.error?.message ?? 'We could not create your profile.',
+          }))
+          return {
+            user: null,
+            phase: 'needs-profile',
+            error: provisioned.error.message,
+          }
+        }
+
+        const createdProfile = await fetchOwnProfile(authUserId)
+        if (profileRequestRef.current !== requestId) {
+          return { user: null, phase: 'loading', error: null }
+        }
+        if (createdProfile.error) {
+          if (createdProfile.error.expired) {
+            resetToUnauthenticated()
+            return {
+              user: null,
+              phase: 'unauthenticated',
+              error: createdProfile.error.message,
+            }
+          }
+
+          setState((previous) => ({
+            ...previous,
+            phase: 'error',
+            user: null,
+            error: createdProfile.error?.message ?? 'We could not load your profile.',
+          }))
+          return {
+            user: null,
+            phase: 'error',
+            error: createdProfile.error.message,
+          }
+        }
+        if (!createdProfile.data) {
+          const message = 'Your profile could not be found after registration. Please try again.'
+          setState((previous) => ({ ...previous, phase: 'error', user: null, error: message }))
+          return { user: null, phase: 'error', error: message }
+        }
+        result.data = createdProfile.data
       }
 
       if (!result.data) {
@@ -193,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authUserIdRef.current === sessionUser.id) return
 
       sessionEmailRef.current = sessionUser.email ?? null
+      sessionNameRef.current = sessionUser.name ?? null
       setState((previous) => ({
         ...previous,
         phase: 'loading',
@@ -200,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionName: sessionUser.name ?? null,
         error: null,
       }))
-      void loadProfile(sessionUser.id, sessionUser.email ?? null)
+      void loadProfile(sessionUser.id, sessionUser.email ?? null, sessionUser.name ?? null)
     },
     [loadProfile, resetToUnauthenticated],
   )
@@ -262,7 +336,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         sessionEmailRef.current = sessionUser.email ?? null
-        const outcome = await loadProfile(sessionUser.id, sessionUser.email ?? null)
+        const outcome = await loadProfile(
+          sessionUser.id,
+          sessionUser.email ?? null,
+          sessionUser.name ?? null,
+        )
 
         return {
           error: outcome.error,
@@ -278,6 +356,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: message,
         }))
         return { error: message, phase: 'unauthenticated', role: null }
+      }
+    },
+    [loadProfile],
+  )
+
+  const signUp = useCallback(
+    async (input: SignUpInput): Promise<SignUpResult> => {
+      const registration = await registerWithEmail(input)
+      if (registration.error) {
+        return { error: registration.error, requiresEmailVerification: false, role: null }
+      }
+
+      try {
+        const auth = getNeonAuth()
+        const session = await auth.getSession()
+        const sessionUser = session.data?.user
+
+        if (!sessionUser) {
+          return { error: null, requiresEmailVerification: true, role: null }
+        }
+
+        setState((previous) => ({ ...previous, phase: 'loading', error: null }))
+        const outcome = await loadProfile(
+          sessionUser.id,
+          sessionUser.email ?? input.email.trim(),
+          sessionUser.name ?? input.fullName.trim(),
+        )
+
+        return {
+          error: outcome.error,
+          requiresEmailVerification: false,
+          role: outcome.user?.role ?? null,
+        }
+      } catch (error) {
+        return {
+          error: describeAuthError(error),
+          requiresEmailVerification: false,
+          role: null,
+        }
       }
     },
     [loadProfile],
@@ -327,7 +444,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: created.error.message, role: null }
       }
 
-      const outcome = await loadProfile(authUserId, sessionEmailRef.current)
+      const outcome = await loadProfile(authUserId, sessionEmailRef.current, sessionNameRef.current)
       return { error: outcome.error, role: outcome.user?.role ?? null }
     },
     [loadProfile, resetToUnauthenticated],
@@ -335,7 +452,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (authUserIdRef.current) {
-      await loadProfile(authUserIdRef.current, sessionEmailRef.current)
+      await loadProfile(authUserIdRef.current, sessionEmailRef.current, sessionNameRef.current)
       return
     }
 
@@ -355,11 +472,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       signIn,
+      signUp,
       signOut,
       completeProfile,
       refreshProfile,
     }),
-    [state, signIn, signOut, completeProfile, refreshProfile],
+    [state, signIn, signUp, signOut, completeProfile, refreshProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

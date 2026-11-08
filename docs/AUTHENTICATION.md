@@ -1,8 +1,8 @@
 # Bachat Book — Authentication & Security
 
-This document describes how authentication works in the Bachat Book client after **Sprint 3**. It covers
-the session lifecycle, the role model, route guards, member onboarding, password reset, configuration and
-the checks that still need a real hosted account.
+This document describes the Bachat Book authentication and role-management implementation. It covers
+public signup, Neon Better Auth sessions, member profile provisioning, initial administrator setup,
+role/access management, password reset, configuration and hosted checks still pending.
 
 > **Security rule in one line:** the browser may _display_ a role, but only PostgreSQL Row Level Security
 > decides what data a session can read or write. Route guards are navigation aids, not authorization.
@@ -21,7 +21,7 @@ React (Vite)
    └── @neon/neon-js — one shared client
             │
             ├── Neon Managed Better Auth
-            │      signIn.email / signOut / getSession
+            │      signUp.email / signIn.email / signOut / getSession
             │      requestPasswordReset / resetPassword
             │      session cookie + JWT
             │
@@ -36,24 +36,28 @@ React (Vite)
 - `src/lib/neon/auth.ts` and `src/lib/neon/data-api.ts` are thin entry points over that client.
 - `DATABASE_URL` is never part of the browser bundle. Only `VITE_NEON_AUTH_URL` and
   `VITE_NEON_DATA_API_URL` are exposed to Vite.
-- No migration was needed for Sprint 3. `db/migrations/00008_add_neon_auth_profile_provisioning.sql`
-  already provides the onboarding function.
+- The original session/onboarding flow uses
+  `db/migrations/00008_add_neon_auth_profile_provisioning.sql`; migration 00014 tightens provisioning
+  and adds the signup/role-management database operations.
 
 ### Relevant files
 
-| File                                                  | Responsibility                                                      |
-| ----------------------------------------------------- | ------------------------------------------------------------------- |
-| `src/features/auth/components/auth-provider.tsx`      | Session atom subscription, profile loading, auth state machine      |
-| `src/features/auth/api/auth-api.ts`                   | Neon Auth calls, profile query, onboarding RPC, error normalization |
-| `src/features/auth/components/require-auth.tsx`       | `HomeRedirect`, `RequireRole`, `RequireSession`                     |
-| `src/features/auth/components/auth-status-screen.tsx` | Config, inactive, error and 403 screens                             |
-| `src/features/auth/pages/login-page.tsx`              | Sign-in form                                                        |
-| `src/features/auth/pages/complete-profile-page.tsx`   | Member onboarding                                                   |
-| `src/features/auth/pages/forgot-password-page.tsx`    | Password-reset request                                              |
-| `src/features/auth/pages/reset-password-page.tsx`     | Token-based password reset                                          |
-| `src/app/router.tsx`                                  | Route structure and guard placement                                 |
-| `src/app/providers.tsx`                               | Mounts `AuthProvider` once                                          |
-| `src/components/layout/profile-menu.tsx`              | Real identity display and sign-out                                  |
+| File                                                   | Responsibility                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------------- |
+| `src/features/auth/components/auth-provider.tsx`       | Session atom subscription, profile loading, auth state machine |
+| `src/features/auth/api/auth-api.ts`                    | Neon Auth calls, profile query, provisioning and access RPCs   |
+| `src/features/auth/components/require-auth.tsx`        | `HomeRedirect`, `RequireRole`, `RequireSession`                |
+| `src/features/auth/components/auth-status-screen.tsx`  | Config, inactive, error and 403 screens                        |
+| `src/features/auth/pages/login-page.tsx`               | Sign-in form                                                   |
+| `src/features/auth/pages/sign-up-page.tsx`             | Public email/password signup                                   |
+| `src/features/auth/pages/initial-admin-setup-page.tsx` | Restricted initial-admin claim                                 |
+| `src/features/auth/pages/complete-profile-page.tsx`    | Member onboarding                                              |
+| `src/features/users/pages/user-management-page.tsx`    | Admin user search and access controls                          |
+| `src/features/auth/pages/forgot-password-page.tsx`     | Password-reset request                                         |
+| `src/features/auth/pages/reset-password-page.tsx`      | Token-based password reset                                     |
+| `src/app/router.tsx`                                   | Route structure and guard placement                            |
+| `src/app/providers.tsx`                                | Mounts `AuthProvider` once                                     |
+| `src/components/layout/profile-menu.tsx`               | Real identity display and sign-out                             |
 
 ---
 
@@ -96,7 +100,8 @@ example embedded credentials or query strings) are rejected without printing the
 ```ts
 interface AuthContextValue extends AuthState {
   signIn(input: SignInInput): Promise<SignInResult>
-  signOut(): Promise<void>
+  signUp(input: SignUpInput): Promise<SignUpResult>
+  signOut(): Promise<string | null>
   completeProfile(input: CompleteProfileInput): Promise<CompleteProfileResult>
   refreshProfile(): Promise<void>
 }
@@ -171,12 +176,13 @@ application profile id, **not** the Neon Auth user id. The Neon Auth id lives on
 
 ### Guard placement
 
-| Guard            | Applies to          | Behaviour                                                                                            |
-| ---------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
-| `HomeRedirect`   | `/`                 | Sends authenticated users to their role dashboard, `needs-profile` to onboarding, others to `/login` |
-| `RequireRole`    | `/admin/*`          | Requires `admin`; unauthenticated → `/login` with `state.from`; wrong role → 403 screen              |
-| `RequireRole`    | `/member/*`         | Requires `member`; same redirect and 403 behaviour                                                   |
-| `RequireSession` | `/complete-profile` | Requires a session; `needs-profile` renders onboarding; completed users go to their dashboard        |
+| Guard              | Applies to             | Behaviour                                                                                            |
+| ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `HomeRedirect`     | `/`                    | Sends authenticated users to their role dashboard, `needs-profile` to onboarding, others to `/login` |
+| `RequireRole`      | `/admin/*`             | Requires `admin`; unauthenticated → `/login` with `state.from`; wrong role → 403 screen              |
+| `RequireRole`      | `/member/*`            | Requires `member`; same redirect and 403 behaviour                                                   |
+| `RequireSession`   | `/complete-profile`    | Requires a session; `needs-profile` renders onboarding; completed users go to their dashboard        |
+| Initial setup page | `/initial-admin-setup` | Session required by the page; database RPC independently restricts the approved Auth identity        |
 
 - Unauthenticated users are redirected with the attempted path in `location.state.from`. After sign-in,
   the login page returns to that path only when it begins with the user's own role prefix, preventing an
@@ -229,6 +235,24 @@ The profile menu calls `auth.signOut()`. It shows no hardcoded preview identity;
 come from the loaded profile. After sign-out the provider enters `unauthenticated`, the query cache is
 cleared and the user is sent to `/login`.
 
+### Public signup
+
+`/sign-up` accepts full name, email, password and password confirmation. Zod validates the email, a
+minimum eight-character password with lower/uppercase letters and a number, and matching passwords.
+Both password fields use the shared visibility toggle. Signup calls only
+`getNeonAuth().signUp.email({ name, email, password })`; there is no role field in the form or API.
+
+After signup, an available Neon Auth session triggers `ensure_own_profile()` immediately. If Neon
+requires email verification and has not issued a session yet, the page asks the user to verify and sign
+in. On the first authenticated session the provider provisions the profile from the Auth session's
+name/email. The database function derives the Auth id from `auth.user_id()`, always writes `member`,
+and rejects an email already linked to another application identity. That conflict protects the
+existing initial-admin profile from accidental duplicate linking.
+
+Duplicate-account errors provide a sign-in/password-reset path. The exact verification email and
+redirect behavior depend on the Managed Better Auth project's settings and must be confirmed on the
+hosted project.
+
 ---
 
 ## 7. Member onboarding (`ensure_own_profile`)
@@ -252,16 +276,14 @@ phase.
 
 4. Re-reads the profile and routes to the member dashboard.
 
-`public.ensure_own_profile(...)`:
+`public.ensure_own_profile(...)` (migration `00014` replaces the original function body):
 
 - derives the Neon Auth identity from `auth.user_id()`;
 - hard-codes `role = 'member'`;
 - accepts no role parameter;
-- is idempotent and returns the existing profile id on repeat calls;
+- requires a name and email and returns the existing profile id on repeat calls;
+- rejects a conflicting email link rather than creating a duplicate account profile;
 - is executable by `authenticated` only.
-
-There is **no public sign-up screen** in the app. A new account is created by an administrator or in the
-Neon Console; onboarding only links an existing authenticated user to a member profile.
 
 ---
 
@@ -299,39 +321,61 @@ hosted project can override it. The app does not store the token anywhere beyond
 
 ---
 
-## 9. Administrator provisioning
+## 9. Initial administrator setup
 
-There is intentionally no self-service path to `admin`. Use the trusted direct-SQL procedure:
+The website's `/initial-admin-setup` page calls `public.claim_initial_admin()` with no identity or
+email parameters. Migration `00014` binds the function server-side to the project owner's supplied
+existing Neon Auth user ID and the existing profile email. It:
 
-1. Create or identify the Neon Auth user (Neon Console or an administrative flow).
-2. Read the managed user id with read-only access:
+1. Verifies the authenticated JWT subject is exactly the configured existing Auth user ID.
+2. Requires exactly one matching application profile and refuses to steal an Auth identity linked to
+   another profile.
+3. Preserves the profile UUID and existing name/contact details while linking the Auth id, setting
+   `role = 'admin'` and activating the profile.
+4. Refuses the claim if any other application admin already exists.
+5. Writes an audit row and inserts a private completion marker. The marker permanently disables the
+   initial-setup path, even if the first admin is later demoted.
 
-   ```sql
-   select id, email from neon_auth.user where email = 'admin@example.com';
-   ```
+When migration `00014` is applied, it seeds this marker from an already-existing Admin profile. That
+prevents the setup route from being re-enabled later if an established Admin is demoted or deactivated.
 
-3. Insert or update the application profile with the direct connection:
+Signup users cannot supply the configured Auth id to this RPC. A user-supplied email comparison in
+React is not used as authorization. The database verifies the signed Neon Auth identity and gates the
+operation. The completed profile UUID is returned by the RPC and shown in the success toast.
 
-   ```sql
-   insert into public.profiles (auth_user_id, full_name, email, role)
-   values ('<neon-auth-user-id>', 'Administrator Name', 'admin@example.com', 'admin')
-   on conflict (auth_user_id) do update
-   set role = 'admin', is_active = true;
-   ```
-
-Rules:
-
-- Never create a second administrator account just to test.
-- `profiles.id` and `profiles.auth_user_id` are immutable after creation.
-- `ensure_own_profile()` cannot create an admin.
-- A role change is guarded by a database trigger; the client cannot promote itself.
-
-The existing dummy `aashish@bachatbook.app` account is **not confirmed** to have a matching
-`public.profiles` row.
+Hosted setup is **not yet performed or verified**. Migration `00014` must be reviewed and applied to the
+intended Neon branch before the website route can succeed. If the hosted profile does not have exactly
+one row for the configured email, stop and inspect the actual database before changing any identity.
 
 ---
 
-## 10. Security checklist
+## 10. Admin user management and role changes
+
+`/admin/user-management` is behind the admin route guard and reads profile names, email, phone, role and
+active status. RLS permits the listing only to active admins. The page searches by name/email and asks
+for confirmation before access changes. Account deactivation is supported through the existing
+`profiles.is_active` column; it does not delete the Neon Auth user or any financial history.
+
+All changes call `public.update_user_access(profile_id, role, is_active)`; the authenticated caller's
+identity and admin role are read from the JWT/profile, never from form data. One database transaction:
+
+- rejects non-admin callers, unknown targets and self-role/status changes;
+- serializes access changes, prevents demoting/deactivating the last active admin;
+- updates role/status and appends the acting profile, target, previous/new values and timestamp to
+  `audit_logs`.
+
+Migration `00014` revokes direct `UPDATE` on profile protected columns and grants only own-contact
+column updates through the Data API. A trigger also rejects role/status/identity changes outside the
+trusted database operation. The audit table no longer accepts client inserts. PostgreSQL RLS remains
+the authorization boundary; the route guard and disabled UI buttons are supplementary.
+
+Role changes take effect for subsequent database requests. Existing Browser UI sessions are not
+forcibly revoked by this feature; database checks use the current profile role/active state on every
+request, and refresh/re-login updates the visible navigation.
+
+---
+
+## 11. Security checklist
 
 - [x] One shared Neon client; no duplicate auth state.
 - [x] `DATABASE_URL` absent from browser code and bundle.
@@ -340,18 +384,20 @@ The existing dummy `aashish@bachatbook.app` account is **not confirmed** to have
 - [x] Guards documented as navigation aids, not authorization.
 - [x] Sign-out clears local state and the query cache.
 - [x] Expired JWTs resolve to a clear sign-in prompt.
-- [x] Onboarding uses `ensure_own_profile()`, which forces `member`.
-- [x] No new migration, RLS change, policy weakening or grant change.
-- [x] No administrator account created by the app.
+- [x] Signup/provisioning uses `ensure_own_profile()`, which forces `member`.
+- [x] Initial-admin RPC is bound to the exact approved Auth subject and permanently one-time.
+- [x] Role/status changes use an audited database RPC; direct protected-column updates are revoked.
+- [x] Existing profile RLS and financial-data policies remain in force.
 - [ ] Hosted JWT forwarding observed under a real session.
 - [ ] Authenticated RLS evaluation observed for admin, member and outsider.
-- [ ] Successful sign-in, session persistence and onboarding verified end-to-end.
+- [ ] Two-account signup/login, profile provisioning and role-management tests passed against hosted Neon.
+- [ ] Initial-admin profile UUID and role verified from the actual hosted database.
 
 The unchecked items require a provisioned test account and are tracked in `docs/PROJECT_STATUS.md`.
 
 ---
 
-## 11. Verification status
+## 12. Verification status
 
 ### Verified
 
@@ -364,6 +410,8 @@ The unchecked items require a provisioned test account and are tracked in `docs/
 - A bogus token renders the form, and submission returns the hosted “Invalid or expired session token”
   error.
 - `/forgot-password` renders and submits through Managed Better Auth.
+- Local TypeScript/build validation covers signup, profile provisioning, initial-admin setup and
+  user-management page code; this does not verify Hosted Better Auth or PostgreSQL behavior.
 
 ### Not verified (blocked on credentials)
 
@@ -371,6 +419,10 @@ The unchecked items require a provisioned test account and are tracked in `docs/
 - Session persistence across reloads and cross-tab updates.
 - Profile loading, role dashboards and inactive-account handling with real accounts.
 - `ensure_own_profile()` success and the onboarding transition.
+- Signup, duplicate email handling and email verification with the hosted Better Auth configuration.
+- Migration `00014`, initial admin profile linking, and the complete existing profile UUID.
+- Admin role promotion/demotion, last-admin/self-change rejection and access deactivation through the
+  authenticated Data API.
 - Password-reset email delivery and a complete password change.
 - Hosted JWT forwarding and authenticated RLS visibility.
 
@@ -378,7 +430,7 @@ Do not describe these as passed until they are exercised with a real hosted sess
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 | Symptom                                           | Likely cause / action                                                            |
 | ------------------------------------------------- | -------------------------------------------------------------------------------- |

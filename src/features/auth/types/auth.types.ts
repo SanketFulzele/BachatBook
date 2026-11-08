@@ -65,6 +65,18 @@ export interface SignInResult {
   role: AuthRole | null
 }
 
+export interface SignUpInput {
+  fullName: string
+  email: string
+  password: string
+}
+
+export interface SignUpResult {
+  error: string | null
+  requiresEmailVerification: boolean
+  role: AuthRole | null
+}
+
 export interface CompleteProfileInput {
   fullName: string
   phone?: string

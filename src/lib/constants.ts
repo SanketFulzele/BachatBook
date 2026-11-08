@@ -6,12 +6,16 @@ export const APP_DESCRIPTION =
 export const ROUTES = {
   home: '/',
   login: '/login',
+  signUp: '/sign-up',
+  initialAdminSetup: '/initial-admin-setup',
   forgotPassword: '/forgot-password',
   resetPassword: '/reset-password',
   completeProfile: '/complete-profile',
   admin: {
     dashboard: '/admin/dashboard',
     groups: '/admin/groups',
+    members: '/admin/members',
+    userManagement: '/admin/user-management',
     group: (groupId: string) => `/admin/groups/${groupId}`,
     installments: '/admin/installments',
     payments: '/admin/payments',
@@ -21,6 +25,7 @@ export const ROUTES = {
   member: {
     dashboard: '/member/dashboard',
     groups: '/member/groups',
+    installments: '/member/installments',
     payments: '/member/payments',
     profile: '/member/profile',
   },

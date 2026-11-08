@@ -5,10 +5,13 @@ import type {
   CompleteProfileResult,
   SignInInput,
   SignInResult,
+  SignUpInput,
+  SignUpResult,
 } from '../types/auth.types'
 
 export interface AuthContextValue extends AuthState {
   signIn: (input: SignInInput) => Promise<SignInResult>
+  signUp: (input: SignUpInput) => Promise<SignUpResult>
   signOut: () => Promise<string | null>
   /** Calls ensure_own_profile() for the signed-in member. Never grants admin. */
   completeProfile: (input: CompleteProfileInput) => Promise<CompleteProfileResult>

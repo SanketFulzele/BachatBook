@@ -90,12 +90,44 @@ const CompleteProfilePage = lazy(() =>
   })),
 )
 
+const SignUpPage = lazy(() =>
+  import('@/features/auth/pages/sign-up-page').then((module) => ({
+    default: module.SignUpPage,
+  })),
+)
+
+const InitialAdminSetupPage = lazy(() =>
+  import('@/features/auth/pages/initial-admin-setup-page').then((module) => ({
+    default: module.InitialAdminSetupPage,
+  })),
+)
+
+const AdminMembersPage = lazy(() =>
+  import('@/features/members/pages/admin-members-page').then((module) => ({
+    default: module.AdminMembersPage,
+  })),
+)
+
+const MemberInstallmentsPage = lazy(() =>
+  import('@/features/groups/pages/member-installments-page').then((module) => ({
+    default: module.MemberInstallmentsPage,
+  })),
+)
+
+const UserManagementPage = lazy(() =>
+  import('@/features/users/pages/user-management-page').then((module) => ({
+    default: module.UserManagementPage,
+  })),
+)
+
 export const router = createBrowserRouter([
   {
     errorElement: <RouteErrorPage />,
     children: [
       { path: ROUTES.home, element: <HomeRedirect /> },
       { path: ROUTES.login, element: <LoginPage /> },
+      { path: ROUTES.signUp, element: <SignUpPage /> },
+      { path: ROUTES.initialAdminSetup, element: <InitialAdminSetupPage /> },
       { path: ROUTES.forgotPassword, element: <ForgotPasswordPage /> },
       { path: ROUTES.resetPassword, element: <ResetPasswordPage /> },
       {
@@ -115,6 +147,8 @@ export const router = createBrowserRouter([
               { path: 'dashboard', element: <DashboardPage /> },
               { path: 'groups', element: <GroupsPage /> },
               { path: 'groups/:groupId', element: <GroupDetailPage /> },
+              { path: 'members', element: <AdminMembersPage /> },
+              { path: 'user-management', element: <UserManagementPage /> },
               { path: 'installments', element: <InstallmentsPage /> },
               { path: 'payments', element: <PaymentsPage /> },
               { path: 'payouts', element: <PayoutsPage /> },
@@ -133,6 +167,7 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="dashboard" replace /> },
               { path: 'dashboard', element: <MemberDashboardPage /> },
               { path: 'groups', element: <MemberGroupsPage /> },
+              { path: 'installments', element: <MemberInstallmentsPage /> },
               { path: 'payments', element: <MemberPaymentsPage /> },
               { path: 'profile', element: <ProfilePage /> },
             ],

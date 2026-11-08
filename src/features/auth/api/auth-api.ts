@@ -32,6 +32,15 @@ export interface RequestResult<T> {
   error: RequestError | null
 }
 
+export interface ManagedProfile {
+  id: string
+  full_name: string
+  email: string | null
+  phone: string | null
+  role: AuthRole
+  is_active: boolean
+}
+
 function readErrorField(error: unknown, key: string): unknown {
   if (typeof error !== 'object' || error === null) return undefined
   return (error as Record<string, unknown>)[key]
@@ -72,6 +81,35 @@ export function describeAuthError(error: unknown): string {
   if (message) return message
 
   return 'We could not complete that request. Please try again.'
+}
+
+/** Registers an account through Managed Better Auth. Signup cannot choose a role. */
+export async function registerWithEmail(input: {
+  fullName: string
+  email: string
+  password: string
+}): Promise<{ error: string | null }> {
+  try {
+    const { error } = await getNeonAuth().signUp.email({
+      name: input.fullName.trim(),
+      email: input.email.trim(),
+      password: input.password,
+    })
+
+    if (!error) return { error: null }
+
+    const message = readMessage(error)
+    if (/already exists|already registered|duplicate|unique/i.test(message)) {
+      return {
+        error:
+          'An account may already exist for this email. Try signing in or resetting your password.',
+      }
+    }
+
+    return { error: describeAuthError(error) }
+  } catch (error) {
+    return { error: describeAuthError(error) }
+  }
 }
 
 /** Whether a Data API error means the session/JWT is no longer valid. */
@@ -165,6 +203,45 @@ export async function createOwnProfile(input: {
       data: null,
       error: { message: describeAuthError(error), expired: false },
     }
+  }
+}
+
+/** Lists account profiles; PostgreSQL RLS limits this query to administrators. */
+export async function fetchManagedProfiles(): Promise<ManagedProfile[]> {
+  const { data, error } = await getNeonDataApi()
+    .from('profiles')
+    .select('id, full_name, email, phone, role, is_active')
+    .order('full_name', { ascending: true })
+
+  if (error) throw new Error(normalizeDataApiError(error).message)
+  return data ?? []
+}
+
+export async function updateManagedProfile(input: {
+  profileId: string
+  role?: AuthRole
+  isActive?: boolean
+}): Promise<void> {
+  const { error } = await getNeonDataApi().rpc('update_user_access', {
+    target_profile_id: input.profileId,
+    requested_role: input.role ?? null,
+    requested_is_active: input.isActive ?? null,
+  })
+
+  if (error) throw new Error(normalizeDataApiError(error).message)
+}
+
+/** Attempts the database-bound, one-time initial-admin claim for this session. */
+export async function claimInitialAdmin(): Promise<{
+  profileId: string | null
+  error: string | null
+}> {
+  try {
+    const { data, error } = await getNeonDataApi().rpc('claim_initial_admin')
+    if (error) return { profileId: null, error: normalizeDataApiError(error).message }
+    return { profileId: data ?? null, error: null }
+  } catch (error) {
+    return { profileId: null, error: describeAuthError(error) }
   }
 }
 

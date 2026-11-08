@@ -1,9 +1,9 @@
 # Bachat Book deployment and recovery
 
-> **Status (2026-11-03):** the selected HTTPS URL serves the app at `/`, but direct route requests
-> currently return Vercel 404s. A Vercel SPA rewrite has been added locally and is not deployed.
-> Migrations `00011`–`00013` are pending per the project handoff, and authenticated production
-> verification has not been performed.
+> **Status (2026-11-04):** the selected HTTPS URL serves the app at `/`, but direct route requests
+> currently return Vercel 404s. A Vercel SPA rewrite and the signup/role-management implementation
+> are local and not deployed. Migrations `00011`–`00014` are pending; hosted authentication and
+> production verification have not been performed.
 
 ## 1. Release prerequisites
 
@@ -13,10 +13,14 @@
    the production database.
 3. Check the current database backup/PITR retention and restore options for the Neon plan. Record the
    operator and the recovery point before changing production.
-4. Apply migrations `00011`–`00013` to the confirmed production branch in numeric order using the
+4. Review and apply migrations `00011`–`00014` to the confirmed production branch in numeric order using the
    direct connection string and a trusted SQL client or protected CI job. Stop on the first failure.
    Never put `DATABASE_URL` in frontend hosting settings. Verify the resulting schema, policies, and
    functions using the queries in [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md).
+   Migration `00014` includes the owner-bound one-time initial-admin flow. Confirm its configured
+   Neon Auth user ID is the intended existing account before applying; do not substitute another
+   account or use the flow to create a new Neon Auth user. If an application Admin already exists,
+   the migration seeds the permanent setup marker and the claim flow remains disabled.
 5. Regenerate database types from the migrated target schema with `npm run generate-types`; review
    the generated diff before including it in the release.
 6. Run the release checks:
@@ -85,6 +89,15 @@ real family records.
 
 - Confirm HTTPS, no browser-console errors, app assets, ICO/PNG favicons, Apple touch icon, shared
   Bachat Book logo, web manifest and its Android icons load.
+- Verify public signup, duplicate-email handling, email verification if enabled, member profile creation,
+  and member-role dashboard routing using a dedicated test account.
+- Run the initial-admin setup only with the pre-existing owner account; record the returned existing
+  profile UUID and verify its `auth_user_id`, `role` and `is_active` against the database.
+- As Admin, test user search, member promotion, admin demotion, account activation/deactivation,
+  confirmation dialogs, self-change rejection and last-active-admin protection. Verify the matching
+  audit rows.
+- As a separate Member account, verify admin route denial, own-profile update restrictions and RLS
+  isolation from unrelated groups, payments and payouts.
 - Refresh a deep link and navigate between login, reset-password, and authenticated routes.
 - Test admin and member login/logout and password reset with real controlled accounts.
 - Verify admin access and member read-only isolation using authenticated sessions.
@@ -110,15 +123,17 @@ real family records.
 
 ## 6. Current deployment record
 
-| Item                              | Status                                                                                                                |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Hosting provider / production URL | Vercel / <https://bachat-book-circle.vercel.app> (selected; root responds over HTTPS)                                 |
-| Frontend deployment / HTTPS       | Existing page is reachable; this release is not deployed and deep routes return 404                                   |
-| Production environment variables  | Not configured or verified                                                                                            |
-| Vercel deployment access          | Not connected to this execution; no Vercel CLI/token is available                                                     |
-| Neon Auth origin / reset URL      | Not configured or verified for a production domain                                                                    |
-| Production migrations             | `00011`–`00013` pending; user approved application after verification, but no database connection/client is available |
-| Remote public smoke checks        | Root login loaded at 390px with no horizontal overflow/console errors; direct app routes return 404                   |
-| Authenticated smoke tests         | Not run                                                                                                               |
-| Backup retention / restore        | Not verified against the production Neon plan                                                                         |
-| PWA                               | `public/site.webmanifest` and favicon/install icons exist; no service worker/offline caching is configured            |
+| Item                              | Status                                                                                                     |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Hosting provider / production URL | Vercel / <https://bachat-book-circle.vercel.app> (selected; root responds over HTTPS)                      |
+| Frontend deployment / HTTPS       | Existing page is reachable; this release is not deployed and deep routes return 404                        |
+| Production environment variables  | Not configured or verified                                                                                 |
+| Vercel deployment access          | Not connected to this execution; no Vercel CLI/token is available                                          |
+| Neon Auth origin / reset URL      | Not configured or verified for a production domain                                                         |
+| Production migrations             | `00011`–`00014` pending; no database connection/client is available in this execution                      |
+| Remote public smoke checks        | Root login loaded at 390px with no horizontal overflow/console errors; direct app routes return 404        |
+| Authenticated smoke tests         | Not run                                                                                                    |
+| Signup and two-account role tests | Not run against hosted Neon                                                                                |
+| Initial Admin profile link        | Not verified; complete hosted profile UUID not queried                                                     |
+| Backup retention / restore        | Not verified against the production Neon plan                                                              |
+| PWA                               | `public/site.webmanifest` and favicon/install icons exist; no service worker/offline caching is configured |
