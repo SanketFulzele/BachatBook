@@ -118,6 +118,7 @@ export function PayoutsPage() {
             </div>
             <InstallmentList
               cycle={cycle}
+              currentProfileId={snapshot.profileId}
               onRecordPayout={
                 snapshot.groups.find((group) => group.group.id === cycle.cycle.group_id)?.group
                   .status === 'archived'

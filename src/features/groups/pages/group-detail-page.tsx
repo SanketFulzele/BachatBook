@@ -71,7 +71,10 @@ export function GroupDetailPage() {
   const [initialObligationId, setInitialObligationId] = useState<string>()
   const [initialInstallmentId, setInitialInstallmentId] = useState<string>()
 
-  const options = useMemo(() => (query.data ? paymentOptions(query.data) : []), [query.data])
+  const options = useMemo(
+    () => (query.data ? paymentOptions(query.data, groupId) : []),
+    [query.data, groupId],
+  )
   const payoutChoices = useMemo(() => (query.data ? payoutOptions(query.data) : []), [query.data])
 
   if (query.isPending) return <PageLoading />
@@ -441,6 +444,7 @@ export function GroupDetailPage() {
             <h3 className="mb-2 text-sm font-semibold text-secondary">Cycle schedule</h3>
             <InstallmentList
               cycle={activeCycle}
+              currentProfileId={snapshot.profileId}
               onRecordPayment={isArchived ? undefined : openPayment}
               onRecordPayout={isArchived ? undefined : openPayout}
             />
@@ -491,7 +495,7 @@ export function GroupDetailPage() {
                     </div>
                   ))}
                 </div>
-                <InstallmentList cycle={cycle} />
+                <InstallmentList cycle={cycle} currentProfileId={snapshot.profileId} />
               </div>
             </details>
           ))}
@@ -516,6 +520,7 @@ export function GroupDetailPage() {
       <RecordPaymentDialog
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
+        groupId={group.group.id}
         options={options}
         initialObligationId={initialObligationId}
       />

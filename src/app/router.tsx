@@ -102,12 +102,6 @@ const InitialAdminSetupPage = lazy(() =>
   })),
 )
 
-const AdminMembersPage = lazy(() =>
-  import('@/features/members/pages/admin-members-page').then((module) => ({
-    default: module.AdminMembersPage,
-  })),
-)
-
 const MemberInstallmentsPage = lazy(() =>
   import('@/features/groups/pages/member-installments-page').then((module) => ({
     default: module.MemberInstallmentsPage,
@@ -147,7 +141,6 @@ export const router = createBrowserRouter([
               { path: 'dashboard', element: <DashboardPage /> },
               { path: 'groups', element: <GroupsPage /> },
               { path: 'groups/:groupId', element: <GroupDetailPage /> },
-              { path: 'members', element: <AdminMembersPage /> },
               { path: 'user-management', element: <UserManagementPage /> },
               { path: 'installments', element: <InstallmentsPage /> },
               { path: 'payments', element: <PaymentsPage /> },

@@ -14,7 +14,6 @@ export const ROUTES = {
   admin: {
     dashboard: '/admin/dashboard',
     groups: '/admin/groups',
-    members: '/admin/members',
     userManagement: '/admin/user-management',
     group: (groupId: string) => `/admin/groups/${groupId}`,
     installments: '/admin/installments',

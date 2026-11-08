@@ -19,7 +19,7 @@ one clear place.
 >
 > The backend target is **Neon PostgreSQL + Neon Managed Better Auth + Neon Data API**. The schema was
 > verified against a real local PostgreSQL 18.4 instance and all sixteen migrations have been applied to
-> the hosted project (migrations `00011`–`00016` on 2026-11-08; signup, role management, recipient-excluded
+> the hosted project (migrations `00011`–`00018` on 2026-11-08; signup, role management, recipient-excluded
 > contributions and the secure payment/payout RPCs verified there at the database level in
 > rollback-only checks). Successful hosted
 > sign-in through the browser and authenticated RLS evaluation still need a provisioned test account. See
@@ -384,9 +384,10 @@ is stored as a running total in the browser.
 | 4      | Simple Bhishi workflow: groups, members, chit order, installments, payments, payouts, dashboards, profile | Implemented (browser-level hosted verification pending)              |
 | 5      | Cycle drafts, manual chit order, confirmation activation and schedule viewing                             | Implemented (browser-level hosted verification pending)              |
 | 6      | Automatic monthly installment generation and read-only admin/member installment viewing                   | Implemented (browser-level hosted verification pending)              |
-| 7–10   | Secure payment/payout RPCs, collection-day due dates, admin Members page, deployment preparation          | Implemented; migrations `00011`–`00016` applied & verified on hosted |
+| 7–10   | Secure payment/payout RPCs, collection-day due dates, admin Members page, deployment preparation          | Implemented; migrations `00011`–`00018` applied & verified on hosted |
 | 12.5   | Add registered members to groups (search-and-select dialog, trusted admin RPC)                            | Implemented; migration `00015` applied & verified on hosted          |
 | 12.6   | Recipient-excluded contributions; payout refused while outstanding                                        | Implemented; migration `00016` applied & verified on hosted          |
+| 12.7   | Group-scoped Record Payment (RPC 00018 + dialog body scroll)                                              | Implemented; migration `00018` applied & verified on hosted          |
 | 11     | Production deployment & launch                                                                            | In progress (Vercel SPA rewrite + real hosted sign-in still pending) |
 
 Reports, exports, audit-log UI, advanced analytics, settings and broad filters are deliberately **not**
@@ -515,7 +516,7 @@ account.
 ## Notes & limitations
 
 - Signup, initial-admin setup, role management and the add-registered-members flow are implemented and
-  their database/RPC behaviour is verified on the hosted Neon branch (migrations `00011`–`00016` applied
+  their database/RPC behaviour is verified on the hosted Neon branch (migrations `00011`–`00018` applied
   2026-11-08; 18 structural + 90 + 32 rollback-only checks). Browser-level flows still need real accounts:
   no hosted sign-in with the owner's password or a fresh member signup has been exercised in the browser.
 - The admin and member screens are real and read the database, but they have not yet been exercised
@@ -527,7 +528,7 @@ account.
   `25c8d456-…99c`, role `admin`, `is_active`, and the one-time setup marker seeded by migration
   `00014`. Do not create another administrator account.
 - Route guards are navigation aids. PostgreSQL RLS remains the only authorization boundary.
-- `database.types.ts` was regenerated against the migrated hosted schema (after migration `00016`);
+- `database.types.ts` was regenerated against the migrated hosted schema (after migration `00018`);
   rerun `npm run generate-types` if the schema changes.
 - Vercel deployment still serves deep links as 404s: the SPA rewrite in `vercel.json` is committed
   locally but not deployed, and production environment variables are not verified.

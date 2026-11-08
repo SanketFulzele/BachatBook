@@ -11,6 +11,7 @@ import {
   deleteEmptyGroup,
   fetchSnapshot,
   linkMemberProfile,
+  recordGroupPayment,
   recordPayment,
   recordPayout,
   setCycleChitOrder,
@@ -131,6 +132,15 @@ export function useActivateDraftCycle() {
 
   return useMutation({
     mutationFn: activateDraftCycle,
+    onSuccess: invalidate,
+  })
+}
+
+export function useRecordGroupPayment() {
+  const invalidate = useInvalidateBhishi()
+
+  return useMutation({
+    mutationFn: recordGroupPayment,
     onSuccess: invalidate,
   })
 }

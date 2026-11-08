@@ -311,13 +311,16 @@ export function groupNameForCycle(snapshot: BhishiSnapshot, cycleId: string): st
   )
 }
 
-export function paymentOptions(snapshot: BhishiSnapshot): PaymentOption[] {
+export function paymentOptions(snapshot: BhishiSnapshot, groupId?: string): PaymentOption[] {
   const options: PaymentOption[] = []
   for (const cycle of snapshot.cycles) {
-    if (
-      snapshot.groups.find((group) => group.group.id === cycle.cycle.group_id)?.group.status ===
-      'archived'
-    ) {
+    const parentGroup = snapshot.groups.find(
+      (group) => group.group.id === cycle.cycle.group_id,
+    )?.group
+    if (parentGroup?.status === 'archived') {
+      continue
+    }
+    if (groupId && parentGroup?.id !== groupId) {
       continue
     }
     const groupName = groupNameForCycle(snapshot, cycle.cycle.id)

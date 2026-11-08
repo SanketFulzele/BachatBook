@@ -1,6 +1,6 @@
 # Bachat Book deployment and recovery
 
-> **Status (2026-11-08):** migrations `00011`–`00016` are applied to the hosted Neon branch and
+> **Status (2026-11-08):** migrations `00011`–`00018` are applied to the hosted Neon branch and
 > verified there (18 + 32 rollback-only checks; hosted data unaffected). The selected HTTPS URL
 > serves the app at `/`, but direct route requests still return Vercel 404s: the SPA rewrite in
 > `vercel.json` and the signup/role-management/add-member implementation are local and not deployed.
@@ -14,7 +14,7 @@
    the production database.
 3. Check the current database backup/PITR retention and restore options for the Neon plan. Record the
    operator and the recovery point before changing production.
-4. Review and apply migrations `00011`–`00016` to the confirmed production branch in numeric order using the
+4. Review and apply migrations `00011`–`00018` to the confirmed production branch in numeric order using the
    direct connection string and a trusted SQL client or protected CI job. Stop on the first failure.
    Never put `DATABASE_URL` in frontend hosting settings. Verify the resulting schema, policies, and
    functions using the queries in [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md).
@@ -25,7 +25,7 @@
    Migration `00015` adds `add_profiles_to_group()`, the trusted admin-only RPC used to add registered
    members to a group. Migration `00016` rebuilds both cycle-activation functions to exclude installment
    recipients from their own obligations and rebuilds `record_payout()` to refuse when contributions
-   remain outstanding; review before applying to a branch holding live cycles.
+   remain outstanding; review before applying to a branch holding live cycles. Migration `00017` adds lifecycle RPCs and archived-write guards; review it before applying as well. Migration `00018` adds group-scoped `record_group_payment()`; review it before applying to a branch with live cycles.
 5. Regenerate database types from the migrated target schema with `npm run generate-types`; review
    the generated diff before including it in the release.
 6. Run the release checks:
@@ -135,7 +135,7 @@ real family records.
 | Production environment variables  | Not configured or verified                                                                                                                                                                             |
 | Vercel deployment access          | Not connected to this execution; no Vercel CLI/token is available                                                                                                                                      |
 | Neon Auth origin / reset URL      | Not configured or verified for a production domain                                                                                                                                                     |
-| Production migrations             | `00011`–`00016` applied to the hosted branch (2026-11-08) and verified; `00014` seeded the claim marker with the existing owner profile, permanently disabling the one-time setup flow by design       |
+| Production migrations             | `00011`–`00018` applied to the hosted branch (2026-11-08) and verified; `00014` seeded the claim marker with the existing owner profile, permanently disabling the one-time setup flow by design       |
 | Database types                    | `src/types/database.types.ts` regenerated from the migrated hosted schema (2026-11-08, includes `add_profiles_to_group`)                                                                               |
 | Hosted structural verification    | 18 checks passed for `00011`–`00014`; RPC grant for `add_profiles_to_group` confirmed for `authenticated` only in `00015` work                                                                         |
 | Hosted behavioural verification   | 90 + 32 rollback-only checks passed (provisioning, role/access RPC, audit trail, profiles RLS, trigger guard, claim flow, add-profiles-to-group idempotency/admin guard/audit); hosted data unaffected |

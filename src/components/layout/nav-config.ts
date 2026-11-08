@@ -11,13 +11,14 @@ import type { NavigationItem } from '@/types'
 import { ROUTES } from '@/lib/constants'
 
 /**
- * Bottom tabs stay limited to four frequently used sections. Everything
- * else lives in the left drawer (mobile) or the desktop header navigation.
+ * Bottom tabs (mobile only) stay limited to four frequently used sections.
+ * The desktop application layout uses a full left sidebar built from the same
+ * items combined with the drawer-only destinations.
  */
 export const adminNavigation: NavigationItem[] = [
   { label: 'Dashboard', href: ROUTES.admin.dashboard, icon: LayoutDashboard },
   { label: 'Groups', href: ROUTES.admin.groups, icon: UsersRound },
-  { label: 'Members', href: ROUTES.admin.members, icon: UsersRound },
+  { label: 'Payouts', href: ROUTES.admin.payouts, icon: Wallet },
   { label: 'Payments', href: ROUTES.admin.payments, icon: CreditCard },
 ]
 

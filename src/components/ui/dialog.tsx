@@ -81,12 +81,12 @@ export function Dialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          'relative z-10 max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-elevated outline-none animate-scale-in sm:p-6',
+          'relative z-10 flex max-h-[min(100dvh-2rem,48rem)] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-elevated outline-none animate-scale-in',
           sizeClasses[size],
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border bg-card px-5 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0 space-y-1.5">
             <h2 id={titleId} className="text-lg font-semibold tracking-tight">
               {title}
@@ -107,8 +107,14 @@ export function Dialog({
           </button>
         </div>
 
-        {children ? <div className="mt-5">{children}</div> : null}
-        {footer ? <div className="mt-6 flex flex-wrap justify-end gap-2">{footer}</div> : null}
+        {children ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">{children}</div>
+        ) : null}
+        {footer ? (
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-border bg-card px-5 py-4 sm:px-6">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>,
     document.body,

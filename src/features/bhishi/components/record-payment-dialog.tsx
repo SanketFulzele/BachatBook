@@ -6,7 +6,7 @@ import { Select } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast-context'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Field } from './field'
-import { useRecordPayment } from '../hooks/use-bhishi'
+import { useRecordGroupPayment, useRecordPayment } from '../hooks/use-bhishi'
 import { todayISO } from '../lib/dates'
 import type { ContributionPaymentMethod, PaymentOption } from '../types'
 
@@ -15,6 +15,8 @@ interface RecordPaymentDialogProps {
   onOpenChange: (open: boolean) => void
   options: PaymentOption[]
   initialObligationId?: string
+  /** When provided, only this group's obligations are submitted (DB-enforced). */
+  groupId?: string
 }
 
 /** The form only mounts while open, so the amount and fields start fresh. */
@@ -23,12 +25,14 @@ export function RecordPaymentDialog({
   onOpenChange,
   options,
   initialObligationId,
+  groupId,
 }: RecordPaymentDialogProps) {
   if (!open) return null
   return (
     <RecordPaymentForm
       options={options}
       initialObligationId={initialObligationId}
+      groupId={groupId}
       onClose={() => onOpenChange(false)}
     />
   )
@@ -37,14 +41,17 @@ export function RecordPaymentDialog({
 function RecordPaymentForm({
   options,
   initialObligationId,
+  groupId,
   onClose,
 }: {
   options: PaymentOption[]
   initialObligationId?: string
+  groupId?: string
   onClose: () => void
 }) {
   const { toast } = useToast()
   const mutation = useRecordPayment()
+  const groupMutation = useRecordGroupPayment()
   const preferred = useMemo(
     () =>
       options.find((option) => option.obligation.obligation.id === initialObligationId) ??
@@ -98,27 +105,44 @@ function RecordPaymentForm({
       return
     }
 
-    mutation.mutate(
-      {
-        obligationId: selected.obligation.obligation.id,
-        amount: parsedAmount,
-        paymentDate,
-        method,
-        reference,
-        notes,
-      },
-      {
-        onSuccess: () => {
-          toast({
-            title: 'Payment recorded',
-            description: `${selected.obligation.member.full_name} · ${formatCurrency(parsedAmount)}`,
-            variant: 'success',
-          })
-          onClose()
+    const input = {
+      obligationId: selected.obligation.obligation.id,
+      amount: parsedAmount,
+      paymentDate,
+      method,
+      reference,
+      notes,
+    }
+
+    if (groupId) {
+      groupMutation.mutate(
+        { ...input, groupId },
+        {
+          onSuccess: () => {
+            toast({
+              title: 'Payment recorded',
+              description: `${selected.obligation.member.full_name} · ${formatCurrency(parsedAmount)}`,
+              variant: 'success',
+            })
+            onClose()
+          },
+          onError: (mutationError) => setError(mutationError.message),
         },
-        onError: (mutationError) => setError(mutationError.message),
+      )
+      return
+    }
+
+    mutation.mutate(input, {
+      onSuccess: () => {
+        toast({
+          title: 'Payment recorded',
+          description: `${selected.obligation.member.full_name} · ${formatCurrency(parsedAmount)}`,
+          variant: 'success',
+        })
+        onClose()
       },
-    )
+      onError: (mutationError) => setError(mutationError.message),
+    })
   }
 
   return (
@@ -142,7 +166,7 @@ function RecordPaymentForm({
           <Button
             type="submit"
             form="record-payment-form"
-            isLoading={mutation.isPending}
+            isLoading={mutation.isPending || groupMutation.isPending}
             disabled={options.length === 0 || !selected}
           >
             {confirming ? 'Confirm & save' : 'Review payment'}

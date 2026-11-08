@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Menu } from 'lucide-react'
 import { PageLoading } from '@/components/feedback/page-loading'
@@ -33,28 +33,21 @@ export function AppShell({
 }: AppShellProps) {
   const location = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const isAdmin = roleLabel === 'Admin'
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [location.pathname])
 
-  const sidebarSections = isAdmin
-    ? [
-        { label: 'Application', items: navigation },
-        {
-          label: 'Administration',
-          items: drawerNavigation.filter((item) => item.href.includes('user-management')),
-        },
-        {
-          label: 'Account',
-          items: drawerNavigation.filter((item) => !item.href.includes('user-management')),
-        },
-      ]
-    : [
-        { label: 'Application', items: navigation },
-        { label: 'Account', items: drawerNavigation },
-      ]
+  const sidebarItems = useMemo(() => {
+    const seen = new Set<string>()
+    return [...navigation, ...drawerNavigation].filter((item) => {
+      if (seen.has(item.href)) return false
+      seen.add(item.href)
+      return true
+    })
+  }, [navigation, drawerNavigation])
+
+  const sidebarSections = [{ label: 'Application', items: sidebarItems }]
 
   return (
     <div className="min-h-screen bg-background md:flex">

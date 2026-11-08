@@ -589,6 +589,11 @@ export type Database = {
         Args: { target_group_id: string; target_profile_ids: string[] }
         Returns: number
       }
+      archive_group: { Args: { target_group_id: string }; Returns: string }
+      assert_group_not_archived: {
+        Args: { target_group_id: string }
+        Returns: undefined
+      }
       can_access_cycle: { Args: { target_cycle_id: string }; Returns: boolean }
       can_access_group: { Args: { target_group_id: string }; Returns: boolean }
       can_access_installment: {
@@ -600,7 +605,6 @@ export type Database = {
         Returns: boolean
       }
       claim_initial_admin: { Args: never; Returns: string }
-      archive_group: { Args: { target_group_id: string }; Returns: string }
       create_cycle_draft: {
         Args: {
           collection_day: number
@@ -620,6 +624,10 @@ export type Database = {
         }
         Returns: string
       }
+      delete_empty_group: {
+        Args: { confirmation_name: string; target_group_id: string }
+        Returns: string
+      }
       ensure_own_profile: {
         Args: {
           profile_email?: string
@@ -630,8 +638,16 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_group_member: { Args: { target_group_id: string }; Returns: boolean }
-      delete_empty_group: {
-        Args: { confirmation_name: string; target_group_id: string }
+      record_group_payment: {
+        Args: {
+          payment_amount: number
+          payment_notes?: string
+          payment_reference?: string
+          target_group_id: string
+          target_obligation_id: string
+          target_payment_date: string
+          target_payment_method: Database['public']['Enums']['payment_method']
+        }
         Returns: string
       }
       record_payment: {

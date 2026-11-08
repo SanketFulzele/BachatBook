@@ -54,7 +54,7 @@ export function InstallmentsPage() {
                 </Badge>
               </CardContent>
             </Card>
-            <InstallmentList cycle={cycle} />
+            <InstallmentList cycle={cycle} currentProfileId={snapshot.profileId} />
           </section>
         ))
       )}

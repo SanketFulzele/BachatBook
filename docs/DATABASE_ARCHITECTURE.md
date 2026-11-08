@@ -85,6 +85,8 @@ db/
 │   ├── 00014_auth_signup_and_role_management.sql
 │   ├── 00015_add_profiles_to_group.sql
 │   ├── 00016_recipient_excluded_contribution_logic.sql
+│   ├── 00017_group_delete_and_archive.sql
+│   ├── 00018_record_payment_in_group.sql
 │   └── README.md
 ├── legacy/
 │   └── sprint-2-supabase-baseline/   # archived original files; never apply
@@ -571,6 +573,37 @@ public.add_profiles_to_group(
 
 ---
 
+### 9.12 Group-scoped payment recording
+
+`00018_record_payment_in_group.sql` adds the trusted group-scoped sibling of the payment RPC used by
+the group-detail payment flow:
+
+```sql
+public.record_group_payment(
+  target_group_id uuid,
+  target_obligation_id uuid,
+  payment_amount numeric,
+  target_payment_date date,
+  target_payment_method public.payment_method,
+  payment_reference text default null,
+  payment_notes text default null
+) returns uuid
+```
+
+- Requires an active administrator via `public.current_profile_id()` and `public.is_admin()`; `EXECUTE`
+  is revoked from `PUBLIC` and granted only to `authenticated`.
+- Verifies the target obligation's installment cycle's `group_id` equals `target_group_id`; otherwise it
+  raises `23514`.
+- Locks the obligation, validates positive two-decimal amounts and rejects amounts above the
+  outstanding balance.
+- The global Payments page is intentionally unchanged; it continues to call `record_payment()` without a
+  group argument.
+- The Record Payment modal is restructured into fixed header / scrollable body / fixed footer sections
+  (base `Dialog` component updated). The frontend passes `groupId` when the modal is opened from a
+  group; without it the screen falls back to the original data behaviour.
+
+---
+
 ## 10. Neon client and environment
 
 The browser layer lives in `src/lib/neon/`:
@@ -698,6 +731,19 @@ obligation for the installment remains outstanding, writing expected/collected t
 audit row. Applied to the hosted branch on 2026-11-08 and verified there with 38 rollback-only checks
 covering three-member and five-member groups, payout gating, idempotent audit and rollback
 cleanliness.
+
+**Safe group lifecycle in `00017_group_delete_and_archive.sql`.** It adds trusted admin-only
+transactional RPCs to delete an empty group with the exact matching group name, and to archive a
+group: deletion is refused when cycles, memberships or financial transactions exist, archive
+preserves history. It also tightens write privileges so archived groups reject new cycles and
+financial activity.
+
+**Group-scoped payment recording in `00018_record_payment_in_group.sql`.** It adds a trusted
+admin-only sibling of `record_payment()` that takes `target_group_id` and verifies the requested
+obligation's installment cycle belongs to that group, refusing otherwise (`23514`). The existing
+`record_payment()` overload is unchanged so the global Payments page is unaffected. Applied to
+hosted on 2026-11-08 via the file formerly (and incorrectly) numbered `00017`; the collision
+with the already-applied `00017_group_delete_and_archive.sql` was discovered and the number corrected.
 
 ### Prerequisites
 
@@ -992,6 +1038,25 @@ verified in a single rollback-only transaction that was rolled back:
 | Hosted database left unchanged after verification         | ✅ Rolled back; still one profile, zero groups/members/audit rows                               |
 | Static checks (typecheck, lint, build, format)            | ✅ Passed                                                                                       |
 
+### Migrations 00017–00018 hosted verification (2026-11-08)
+
+`00017_group_delete_and_archive.sql` was already applied to the hosted branch before this session
+(we confirmed `archive_group`, `delete_empty_group` and `assert_group_not_archived` are present).
+It was not re-verified in this session; it is treated as existing hosted state.
+
+`00018_record_payment_in_group.sql` was applied to the hosted branch and verified in a single
+rollback-only transaction that was rolled back:
+
+| Check                                                  | Result                                                                             |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `record_group_payment(uuid, uuid, numeric, date, ...)` | ✅ Present on hosted; granted to `authenticated` only                              |
+| Obligation in group A, `target_group_id` = group B     | ✅ Refused with `23514` “This contribution does not belong to the requested group” |
+| Obligation in the expected group                       | ✅ Payment recorded; audit row includes `group_id` from the JWT-derived actor      |
+| `record_payment()` (global) remains usable             | ✅ Invoked successfully for another obligation                                     |
+| Hosted database left unchanged after verification      | ✅ Rolled back; no test groups, payments or audit rows remain                      |
+| Types regenerated from the migrated hosted schema      | ✅ `npm run generate-types`; includes `record_group_payment`                       |
+| Static checks (typecheck, lint, build, format)         | ✅ Passed                                                                          |
+
 ---
 
 ## 16. Known limitations
@@ -1015,7 +1080,7 @@ verified in a single rollback-only transaction that was rolled back:
 7. **Generated types must be refreshed after schema changes.** The committed baseline was regenerated
    from the hosted schema after migration `00016` was applied (2026-11-08). Regenerate with
    `npm run generate-types` whenever the schema changes and review the diff.
-8. **Browser-level authenticated validation is pending.** Migrations `00011`–`00016` are applied and
+8. **Browser-level authenticated validation is pending.** Migrations `00011`–`00018` are applied and
    their database behaviour verified on the hosted branch, but real hosted sign-in, browser-driven
    signup/role-management flows, RLS under real Data API JWTs, session persistence and
    mobile-browser checks remain to be run against real accounts.

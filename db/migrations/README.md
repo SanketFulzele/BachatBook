@@ -22,7 +22,8 @@ roles and the `auth.user_id()` identity function).
 | `00014_auth_signup_and_role_management.sql`       | Member profile provisioning, audited role/access RPCs, and identity-bound initial-admin setup | **Applied**                   |
 | `00015_add_profiles_to_group.sql`                 | Trusted admin-only RPC `add_profiles_to_group()` linking registered profiles to groups        | **Applied**                   |
 | `00016_recipient_excluded_contribution_logic.sql` | Recipient-excluded contribution model; payout refused while outstanding                       | **Applied**                   |
-| `00017_group_delete_and_archive.sql`              | Admin-only empty-group deletion and history-preserving archive RPCs; blocks archived writes   | **New**                       |
+| `00017_group_delete_and_archive.sql`              | Admin-only empty-group deletion and history-preserving archive RPCs; blocks archived writes   | **Applied**                   |
+| `00018_record_payment_in_group.sql`               | Trusted admin-only RPC `record_group_payment()` with expected-group validation                | **Applied**                   |
 
 ## Migration history
 
@@ -34,7 +35,7 @@ preserve.
 The original seven files are archived verbatim in
 [`../legacy/sprint-2-supabase-baseline/`](../legacy/sprint-2-supabase-baseline/) for reference.
 They must **not** be applied to a Neon database. The files in this directory are the Neon baseline,
-followed by migrations `00008`–`00017`.
+followed by migrations `00008`–`00018`.
 
 `00009` is the first migration that adds a write workflow rather than a table: it wraps cycle
 activation in one `SECURITY DEFINER` transaction so a half-generated schedule can never be left
@@ -96,6 +97,16 @@ for archived groups. Apply after `00016`; no existing migration is modified. All
 are append-only. Never edit a migration that has been applied to a persistent Neon database; add
 the next numbered file instead.
 
+`00018` adds `record_group_payment(target_group_id uuid, target_obligation_id uuid, payment_amount
+numeric, target_payment_date date, target_payment_method public.payment_method, payment_reference
+text default null, payment_notes text default null) returns uuid`. It is the group-aware variant used
+when the Record Payment modal is opened from a specific group. It requires an active administrator,
+rejects an obligation whose installment cycle belongs to a different group, locks the obligation and
+rejects amounts above the outstanding balance. The global `record_payment()` remains available for the
+global Payments page; `record_group_payment()` must be used for group-scoped screens so a request
+spoofed with a different obligation cannot be applied. Applied to hosted on 2026-11-08 via the file
+formerly (and incorrectly) numbered `00017`; the collision was discovered and the number corrected.
+
 ## Prerequisites
 
 1. The Neon project/branch exists.
@@ -105,7 +116,8 @@ the next numbered file instead.
    identity specified by the project owner. `00015` adds `add_profiles_to_group()` and must be applied
    after `00014` if this flow is used. `00016` implements the recipient-excluded contribution model and
    its payout gate; review it before applying to a branch that holds live cycles. `00017` adds
-   lifecycle RPCs and archived-write guards; review it before applying as well.
+   lifecycle RPCs and archived-write guards; review it before applying as well. `00018` adds
+   group-scoped payment recording; apply after `00017`.
 4. `DATABASE_URL` points at the branch using the **direct** (non-pooled) connection string, and is
    available only to your shell / CI, never to browser code.
 
