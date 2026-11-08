@@ -6,7 +6,7 @@
 >
 > **Status:** the hosted Neon project **BachatBook** is provisioned (production branch active) with Neon
 > Auth and the Data API enabled. Migrations `00001`–`00016` have been applied to that branch
-> (00011–00016 on 2026-11-08). The hosted schema has all 11 application tables plus
+> (00011–00019 on 2026-11-08). The hosted schema has all 11 application tables plus
 > `initial_admin_setup` under the RLS/privilege model, 30 policies, zero `DELETE` policies, and all
 > workflow functions granted to `authenticated` only. Hosted schema structure and the deployed
 > signup/role-management and add-registered-members behaviour were verified with 18 + 32 rollback-only
@@ -87,6 +87,7 @@ db/
 │   ├── 00016_recipient_excluded_contribution_logic.sql
 │   ├── 00017_group_delete_and_archive.sql
 │   ├── 00018_record_payment_in_group.sql
+│   ├── 00019_complete_cycle_and_next_cycle.sql
 │   └── README.md
 ├── legacy/
 │   └── sprint-2-supabase-baseline/   # archived original files; never apply
@@ -602,6 +603,25 @@ public.record_group_payment(
   (base `Dialog` component updated). The frontend passes `groupId` when the modal is opened from a
   group; without it the screen falls back to the original data behaviour.
 
+### 9.13 Automatic cycle completion and next-cycle eligibility
+
+`00019_complete_cycle_and_next_cycle.sql` adds the lifecycle boundary:
+
+```sql
+public.cycle_ready_to_complete(target_cycle_id uuid) returns boolean
+public.try_complete_cycle(target_cycle_id uuid) returns boolean
+```
+
+- `cycle_ready_to_complete()` returns true when every obligation in every installment is fully covered
+  by non-voided payments and every installment has a non-voided payout.
+- `record_payment()`, `record_payout()` and `record_group_payment()` all call `try_complete_cycle()` at
+  the end of the same transaction; if the cycle just became ready, its status flips to `completed`
+  and a `cycle.completed` audit row is written.
+- `create_cycle_draft()` and `activate_cycle_draft()` now refuse to proceed while any non-cancelled,
+  non-completed cycle exists in the target group (outstanding contributions or pending payouts). This
+  prevents starting a new cycle on an incomplete previous one.
+- No schema changes; every change is a function definition.
+
 ---
 
 ## 10. Neon client and environment
@@ -744,6 +764,13 @@ obligation's installment cycle belongs to that group, refusing otherwise (`23514
 `record_payment()` overload is unchanged so the global Payments page is unaffected. Applied to
 hosted on 2026-11-08 via the file formerly (and incorrectly) numbered `00017`; the collision
 with the already-applied `00017_group_delete_and_archive.sql` was discovered and the number corrected.
+
+**Automatic cycle completion and next-cycle eligibility in `00019_complete_cycle_and_next_cycle.sql`.**
+It adds `cycle_ready_to_complete()` and `try_complete_cycle()`, rebuilds `record_payment()`,
+`record_payout()` and `record_group_payment()` to call `try_complete_cycle()` in the same transaction,
+and rebuilds `create_cycle_draft()` / `activate_cycle_draft()` to refuse while any
+non-cancelled, non-completed cycle exists in the group. Applied to hosted on 2026-11-08 and verified
+there with 17 rollback-only checks covering the full Cycle 1 → Cycle 2 workflow.
 
 ### Prerequisites
 
@@ -1057,6 +1084,26 @@ rollback-only transaction that was rolled back:
 | Types regenerated from the migrated hosted schema      | ✅ `npm run generate-types`; includes `record_group_payment`                       |
 | Static checks (typecheck, lint, build, format)         | ✅ Passed                                                                          |
 
+### Migration 00019 hosted verification (2026-11-08)
+
+`00019_complete_cycle_and_next_cycle.sql` was applied to the hosted branch and verified in a single
+rollback-only transaction: a three-member fixture group, ₹10,000 contribution, chit order
+A→1, B→2, C→3. After all six obligations are paid and three payouts recorded:
+
+| Check                                                 | Result                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| Cycle 1 draft created + chit order saved + activated  | ✅ Draft cycle, chit order accepted; activation generates 3 installments |
+| Recipient excluded from their own obligations         | ✅ 6 obligations across 3 installments                                   |
+| New cycle blocked while Cycle 1 is active             | ✅ `create_cycle_draft` refused with `23505`                             |
+| Cycle 1 becomes `completed` after last payout/payment | ✅ `status = 'completed'`                                                |
+| Cycle 2 draft created after Cycle 1 completes         | ✅ Draft cycle with ₹12,000 snapshot created                             |
+| Cycle 1 data preserved unchanged                      | ✅ 6 obligations still present                                           |
+| Cycle 2 activated; generates its own 3 installments   | ✅ Expected contributions = ₹24,000 each (recipient excluded)            |
+| Cycle 3 blocked while Cycle 2 active                  | ✅ `create_cycle_draft` refused                                          |
+| Hosted database left unchanged after verification     | ✅ Rolled back; no fixture data remains                                  |
+| Types regenerated                                     | ✅ Includes `cycle_ready_to_complete` and `try_complete_cycle`           |
+| Static checks (typecheck, lint, build, format)        | ✅ Passed                                                                |
+
 ---
 
 ## 16. Known limitations
@@ -1080,7 +1127,7 @@ rollback-only transaction that was rolled back:
 7. **Generated types must be refreshed after schema changes.** The committed baseline was regenerated
    from the hosted schema after migration `00016` was applied (2026-11-08). Regenerate with
    `npm run generate-types` whenever the schema changes and review the diff.
-8. **Browser-level authenticated validation is pending.** Migrations `00011`–`00018` are applied and
+8. **Browser-level authenticated validation is pending.** Migrations `00011`–`00019` are applied and
    their database behaviour verified on the hosted branch, but real hosted sign-in, browser-driven
    signup/role-management flows, RLS under real Data API JWTs, session persistence and
    mobile-browser checks remain to be run against real accounts.

@@ -624,6 +624,10 @@ export type Database = {
         }
         Returns: string
       }
+      cycle_ready_to_complete: {
+        Args: { target_cycle_id: string }
+        Returns: boolean
+      }
       delete_empty_group: {
         Args: { confirmation_name: string; target_group_id: string }
         Returns: string
@@ -674,6 +678,10 @@ export type Database = {
       set_cycle_chit_order: {
         Args: { chit_order: Json; target_cycle_id: string }
         Returns: undefined
+      }
+      try_complete_cycle: {
+        Args: { target_cycle_id: string }
+        Returns: boolean
       }
       update_user_access: {
         Args: {

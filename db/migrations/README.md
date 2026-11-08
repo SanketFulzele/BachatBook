@@ -24,6 +24,7 @@ roles and the `auth.user_id()` identity function).
 | `00016_recipient_excluded_contribution_logic.sql` | Recipient-excluded contribution model; payout refused while outstanding                       | **Applied**                   |
 | `00017_group_delete_and_archive.sql`              | Admin-only empty-group deletion and history-preserving archive RPCs; blocks archived writes   | **Applied**                   |
 | `00018_record_payment_in_group.sql`               | Trusted admin-only RPC `record_group_payment()` with expected-group validation                | **Applied**                   |
+| `00019_complete_cycle_and_next_cycle.sql`         | Cycle auto-completion on payment/payout and guarded next-cycle creation                       | **Applied**                   |
 
 ## Migration history
 
@@ -35,7 +36,7 @@ preserve.
 The original seven files are archived verbatim in
 [`../legacy/sprint-2-supabase-baseline/`](../legacy/sprint-2-supabase-baseline/) for reference.
 They must **not** be applied to a Neon database. The files in this directory are the Neon baseline,
-followed by migrations `00008`–`00018`.
+followed by migrations `00008`–`00019`.
 
 `00009` is the first migration that adds a write workflow rather than a table: it wraps cycle
 activation in one `SECURITY DEFINER` transaction so a half-generated schedule can never be left
@@ -107,6 +108,14 @@ global Payments page; `record_group_payment()` must be used for group-scoped scr
 spoofed with a different obligation cannot be applied. Applied to hosted on 2026-11-08 via the file
 formerly (and incorrectly) numbered `00017`; the collision was discovered and the number corrected.
 
+`00019` implements automatic cycle completion and next-cycle eligibility. It adds
+`cycle_ready_to_complete()`/`try_complete_cycle()` helpers, rebuilds `record_payment()` and
+`record_payout()` to call `try_complete_cycle()` at the end of the same transaction, rebuilds
+`create_cycle_draft()` and `activate_cycle_draft()` to refuse when any unfinished non-cancelled
+cycle exists in the group, and rebuilds `record_group_payment()` with the same completion hook. No
+schema changes; all changes are functions. Applied to hosted on 2026-11-08 and verified there with
+17 rollback-only checks covering the full Cycle 1 → Cycle 2 workflow.
+
 ## Prerequisites
 
 1. The Neon project/branch exists.
@@ -117,7 +126,8 @@ formerly (and incorrectly) numbered `00017`; the collision was discovered and th
    after `00014` if this flow is used. `00016` implements the recipient-excluded contribution model and
    its payout gate; review it before applying to a branch that holds live cycles. `00017` adds
    lifecycle RPCs and archived-write guards; review it before applying as well. `00018` adds
-   group-scoped payment recording; apply after `00017`.
+   group-scoped payment recording; apply after `00017`. `00019` adds automatic cycle completion and
+   the guarded next-cycle rule; review it before applying.
 4. `DATABASE_URL` points at the branch using the **direct** (non-pooled) connection string, and is
    available only to your shell / CI, never to browser code.
 

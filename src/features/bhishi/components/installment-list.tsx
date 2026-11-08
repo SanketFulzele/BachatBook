@@ -66,18 +66,16 @@ export function InstallmentList({
         const isPersonalUpcoming = isPersonalRecipient && !installment.isPast && !installment.payout
         const hasBothHighlights = isCurrentMonth && isPersonalUpcoming
         const cardStyle = hasBothHighlights
-          ? 'border-emerald-200 bg-emerald-50/60'
+          ? 'border-emerald-300 bg-card'
           : isPersonalUpcoming
             ? 'border-violet-200 bg-violet-50/60'
             : isCurrentMonth
-              ? 'border-emerald-200 bg-emerald-50/60'
+              ? 'border-emerald-300 bg-card'
               : 'border-border bg-card'
         const iconStyle =
           isPersonalUpcoming && !isCurrentMonth
             ? 'bg-violet-100 text-violet-700'
-            : isCurrentMonth
-              ? 'bg-emerald-100 text-emerald-700'
-              : 'bg-muted text-muted-foreground'
+            : 'bg-muted text-muted-foreground'
 
         return (
           <div
@@ -94,11 +92,7 @@ export function InstallmentList({
                   <CalendarDays className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p
-                    className={`text-sm font-semibold ${
-                      isCurrentMonth ? 'text-emerald-900' : 'text-secondary'
-                    }`}
-                  >
+                  <p className="text-sm font-semibold text-secondary">
                     Installment #{row.installment_number}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -108,7 +102,7 @@ export function InstallmentList({
               </div>
               <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                 {isCurrentMonth ? (
-                  <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+                  <span className="rounded-full border border-emerald-200 bg-card px-2.5 py-1 text-[11px] font-medium text-emerald-800">
                     Current month
                   </span>
                 ) : null}

@@ -118,6 +118,8 @@ export function GroupDetailPage() {
   const previousCycles = group.cycles.filter(
     (cycle) => cycle.cycle.status !== 'draft' && cycle.cycle.id !== activeCycle?.cycle.id,
   )
+  const incompletePrevious = previousCycles.some((cycle) => cycle.cycle.status !== 'completed')
+  const hasCycleHistory = previousCycles.length > 0
   const linkedProfileIds = new Set(
     snapshot.members
       .map((member) => member.profile_id)
@@ -185,8 +187,13 @@ export function GroupDetailPage() {
                   Add member
                 </Button>
                 {!activeCycle && !draftCycle ? (
-                  <Button size="lg" onClick={() => setCreateCycleOpen(true)}>
-                    Create cycle
+                  <Button
+                    size="lg"
+                    onClick={() => setCreateCycleOpen(true)}
+                    disabled={incompletePrevious}
+                    title={incompletePrevious ? 'Complete the previous cycle first' : undefined}
+                  >
+                    {hasCycleHistory ? 'Create next cycle' : 'Create cycle'}
                   </Button>
                 ) : null}
               </>
@@ -455,13 +462,22 @@ export function GroupDetailPage() {
       {!isArchived && !activeCycle && !draftCycle && previousCycles.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 p-6 text-center sm:p-7">
-            <h2 className="text-base font-semibold text-secondary">Ready to start?</h2>
+            <h2 className="text-base font-semibold text-secondary">
+              {hasCycleHistory ? 'Start the next cycle' : 'Ready to start?'}
+            </h2>
             <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">
-              Add all members, then create the cycle. You can review the chit order before
-              activating it.
+              {hasCycleHistory
+                ? 'The previous cycle is complete. Choose a new start month, contribution amount and chit order to begin the next cycle.'
+                : 'Add all members, then create the cycle. You can review the chit order before activating it.'}
             </p>
-            <Button className="mt-2" size="lg" onClick={() => setCreateCycleOpen(true)}>
-              Create cycle
+            <Button
+              className="mt-2"
+              size="lg"
+              onClick={() => setCreateCycleOpen(true)}
+              disabled={incompletePrevious}
+              title={incompletePrevious ? 'Complete the previous cycle first' : undefined}
+            >
+              {hasCycleHistory ? 'Create next cycle' : 'Create cycle'}
             </Button>
           </CardContent>
         </Card>
@@ -472,9 +488,14 @@ export function GroupDetailPage() {
           <h2 className="text-base font-semibold text-secondary">Previous cycles</h2>
           {previousCycles.map((cycle) => (
             <details key={cycle.cycle.id} className="rounded-xl border border-border bg-card">
-              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
-                {cycle.cycle.name} · {formatDate(cycle.cycle.start_date)} ·{' '}
-                {formatCurrency(cycle.cycle.contribution_amount_snapshot)}
+              <summary className="flex list-none cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-medium">
+                <span className="min-w-0 truncate">
+                  {cycle.cycle.name} · {formatDate(cycle.cycle.start_date)} ·{' '}
+                  {formatCurrency(cycle.cycle.contribution_amount_snapshot)}
+                </span>
+                <Badge variant={cycle.cycle.status === 'completed' ? 'neutral' : 'success'} withDot>
+                  {cycle.cycle.status === 'completed' ? 'Completed' : cycle.cycle.status}
+                </Badge>
               </summary>
               <div className="space-y-3 border-t border-border p-3">
                 <div className="divide-y divide-border rounded-xl border border-border">

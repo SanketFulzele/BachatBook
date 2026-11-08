@@ -1,0 +1,38 @@
+Step 1 — clear bhishi data, keep user data
+
+begin;
+
+-- Optional: wipe the audit log (recommended to keep, so historical runs are traceable)
+-- delete from public.audit_logs;
+
+delete from public.payments;
+delete from public.payouts;
+delete from public.contribution_obligations;
+delete from public.installments;
+delete from public.cycle_members;
+delete from public.cycles;
+delete from public.group_members;
+
+-- Keep linked members (the person exists in real life); drop unlinked test rows
+delete from public.members where profile_id is null;
+
+delete from public.bhishi_groups;
+
+commit;
+
+
+
+Step 2 — if you want truly empty everything (including profile-linked members)
+
+begin;
+delete from public.payments;
+delete from public.payouts;
+delete from public.contribution_obligations;
+delete from public.installments;
+delete from public.cycle_members;
+delete from public.cycles;
+delete from public.group_members;
+delete from public.members;           -- deletes all member rows, including profile-linked
+delete from public.bhishi_groups;
+delete from public.audit_logs;       -- optional
+commit;
