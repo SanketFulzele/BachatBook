@@ -61,7 +61,9 @@ export function MemberInstallmentsPage() {
         <CardContent className="p-4 sm:p-5">
           {installments.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No installments are scheduled for your account yet.
+              No contribution installments are listed because your account currently has no pending
+              obligations. If you are the recipient for this cycle's month, you don't contribute —
+              the other members pay.
             </p>
           ) : (
             <ul className="divide-y divide-border">

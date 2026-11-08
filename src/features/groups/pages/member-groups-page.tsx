@@ -198,7 +198,7 @@ export function MemberGroupsPage() {
               </Card>
             ) : (
               <Card>
-                <CardContent className="p-5">
+                <CardContent className="p-4 sm:p-5">
                   <p className="text-sm text-muted-foreground">
                     The cycle has not started yet. Your admin will start it after everyone joins.
                   </p>

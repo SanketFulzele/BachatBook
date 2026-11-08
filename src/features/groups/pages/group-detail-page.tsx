@@ -325,13 +325,13 @@ export function GroupDetailPage() {
 
       {!activeCycle && !draftCycle && previousCycles.length === 0 ? (
         <Card>
-          <CardContent className="p-5 text-center">
+          <CardContent className="flex flex-col items-center gap-2 p-6 text-center sm:p-7">
             <h2 className="text-base font-semibold text-secondary">Ready to start?</h2>
-            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-muted-foreground">
+            <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">
               Add all members, then create the cycle. You can review the chit order before
               activating it.
             </p>
-            <Button className="mt-4" size="lg" onClick={() => setCreateCycleOpen(true)}>
+            <Button className="mt-2" size="lg" onClick={() => setCreateCycleOpen(true)}>
               Create cycle
             </Button>
           </CardContent>

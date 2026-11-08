@@ -187,6 +187,10 @@ function RecordPaymentForm({
                     </option>
                   ))}
                 </Select>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Only members with a pending contribution appear here — this cycle's recipient does
+                  not pay in their own payout month.
+                </p>
               </Field>
 
               {selected ? (

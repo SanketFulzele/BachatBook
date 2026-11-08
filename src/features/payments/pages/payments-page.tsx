@@ -59,7 +59,7 @@ export function PaymentsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Payments"
-        description="Money received from members and contributions still pending."
+        description="Money received from members and contributions still pending. Recipients of a payout do not contribute in their own month."
         actions={
           <Button
             size="lg"

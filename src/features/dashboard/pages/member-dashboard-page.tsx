@@ -148,7 +148,8 @@ export function MemberDashboardPage() {
                     </div>
                   ) : (
                     <p className="rounded-lg bg-muted px-3 py-3 text-sm text-muted-foreground">
-                      No contribution obligation is available for this installment.
+                      No contribution obligation is available for you this installment — you may be
+                      the recipient this month, or the cycle hasn't started yet.
                     </p>
                   )}
 

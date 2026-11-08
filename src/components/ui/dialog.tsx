@@ -81,13 +81,13 @@ export function Dialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          'relative z-10 w-full rounded-2xl border border-border bg-card p-6 shadow-elevated outline-none animate-scale-in',
+          'relative z-10 max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-elevated outline-none animate-scale-in sm:p-6',
           sizeClasses[size],
           className,
         )}
       >
         <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <h2 id={titleId} className="text-lg font-semibold tracking-tight">
               {title}
             </h2>
@@ -108,7 +108,7 @@ export function Dialog({
         </div>
 
         {children ? <div className="mt-5">{children}</div> : null}
-        {footer ? <div className="mt-6 flex justify-end gap-2">{footer}</div> : null}
+        {footer ? <div className="mt-6 flex flex-wrap justify-end gap-2">{footer}</div> : null}
       </div>
     </div>,
     document.body,
