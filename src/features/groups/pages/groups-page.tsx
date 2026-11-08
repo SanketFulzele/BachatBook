@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, UsersRound } from 'lucide-react'
+import { Archive, Plus, UsersRound } from 'lucide-react'
 import { PageHeader } from '@/components/common/page-header'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/feedback/page-loading'
@@ -13,6 +13,7 @@ import { ROUTES } from '@/lib/constants'
 export function GroupsPage() {
   const query = useBhishiData()
   const [createOpen, setCreateOpen] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   if (query.isPending) return <PageLoading />
   if (query.isError) {
@@ -24,7 +25,9 @@ export function GroupsPage() {
     )
   }
 
-  const groups = query.data.groups
+  const activeGroups = query.data.groups.filter((group) => group.group.status !== 'archived')
+  const archivedGroups = query.data.groups.filter((group) => group.group.status === 'archived')
+  const groups = showArchived ? archivedGroups : activeGroups
 
   return (
     <div className="space-y-5">
@@ -42,7 +45,26 @@ export function GroupsPage() {
         }
       />
 
-      {groups.length === 0 ? (
+      <div className="flex flex-wrap gap-2" aria-label="Group views">
+        <Button
+          size="sm"
+          variant={showArchived ? 'outline' : 'secondary'}
+          aria-pressed={!showArchived}
+          onClick={() => setShowArchived(false)}
+        >
+          Active groups ({activeGroups.length})
+        </Button>
+        <Button
+          size="sm"
+          variant={showArchived ? 'secondary' : 'outline'}
+          aria-pressed={showArchived}
+          onClick={() => setShowArchived(true)}
+        >
+          Archived ({archivedGroups.length})
+        </Button>
+      </div>
+
+      {groups.length === 0 && !showArchived ? (
         <EmptyState
           icon={UsersRound}
           title="No groups yet"
@@ -56,6 +78,12 @@ export function GroupsPage() {
               Create group
             </Button>
           }
+        />
+      ) : groups.length === 0 ? (
+        <EmptyState
+          icon={Archive}
+          title="No archived groups"
+          description="Groups with cycle or financial history will appear here after they are archived."
         />
       ) : (
         <div className="space-y-3">

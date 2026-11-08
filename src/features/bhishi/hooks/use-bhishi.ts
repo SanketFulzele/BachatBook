@@ -3,10 +3,12 @@ import { useAuth } from '@/features/auth/components/auth-context'
 import { queryKeys } from '@/lib/query-keys'
 import {
   activateDraftCycle,
+  archiveGroup,
   addGroupMember,
   addProfilesToGroup,
   createCycleDraft,
   createGroup,
+  deleteEmptyGroup,
   fetchSnapshot,
   linkMemberProfile,
   recordPayment,
@@ -51,6 +53,24 @@ export function useCreateGroup() {
         ...input,
         profileId: auth.user?.id ?? '',
       }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useArchiveGroup() {
+  const invalidate = useInvalidateBhishi()
+
+  return useMutation({
+    mutationFn: archiveGroup,
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteEmptyGroup() {
+  const invalidate = useInvalidateBhishi()
+
+  return useMutation({
+    mutationFn: deleteEmptyGroup,
     onSuccess: invalidate,
   })
 }

@@ -1,30 +1,48 @@
-import { Suspense, useEffect, type ReactNode } from 'react'
+import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Logo } from '@/components/common/logo'
+import { Ellipsis, Menu } from 'lucide-react'
 import { PageLoading } from '@/components/feedback/page-loading'
 import { ProfileMenu } from '@/components/layout/profile-menu'
+import { AppDrawer } from '@/components/layout/app-drawer'
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown'
+import { Logo } from '@/components/common/logo'
 import type { NavigationItem } from '@/types'
 import { cn } from '@/lib/utils'
-import { Ellipsis } from 'lucide-react'
 
 interface AppShellProps {
   homeHref: string
   roleLabel: string
   navigation: NavigationItem[]
-  moreNavigation?: NavigationItem[]
+  desktopNavigation?: NavigationItem[]
+  drawerNavigation?: NavigationItem[]
 }
 
 /**
  * Shared mobile-first shell for both roles.
  *
- * Mobile: compact header + bottom tab bar (large touch targets).
- * Tablet/desktop: the same destinations move into the header.
+ * Mobile: hamburger menu (opens the destinations drawer), centred logo and
+ * a profile button, plus a bottom tab bar with exactly four frequently used
+ * sections. Tablet/desktop: the destinations move into the header, with the
+ * remainder available from a "More" menu. Optional longer destinations are
+ * hidden behind breakpoints to avoid overflow.
  */
-export function AppShell({ homeHref, roleLabel, navigation, moreNavigation = [] }: AppShellProps) {
+export function AppShell({
+  homeHref,
+  roleLabel,
+  navigation,
+  desktopNavigation,
+  drawerNavigation = [],
+}: AppShellProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const isMoreActive = moreNavigation.some((item) => location.pathname.startsWith(item.href))
+  const desktopItems = desktopNavigation ?? navigation
+  const desktopMoreItems = drawerNavigation.filter(
+    (item) => !desktopItems.some((kept) => kept.href === item.href),
+  )
+  const isDrawerMenuActive = drawerNavigation.some((item) =>
+    location.pathname.startsWith(item.href),
+  )
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
@@ -40,42 +58,62 @@ export function AppShell({ homeHref, roleLabel, navigation, moreNavigation = [] 
       </a>
 
       <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85">
-        <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
+        <div className="relative mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 sm:px-6 md:h-16 md:justify-start md:gap-3 lg:gap-4">
+          {/* Mobile: hamburger on the left */}
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="z-10 flex h-11 w-11 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label="Open menu"
+            aria-controls="app-drawer"
+            aria-expanded={drawerOpen}
+          >
+            <Menu aria-hidden="true" className="h-6 w-6" />
+          </button>
+
+          {/* Center: Bachat Book logo and name */}
           <Link
             to={homeHref}
-            className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="absolute left-1/2 z-0 -translate-x-1/2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:static md:translate-x-0"
             aria-label={`Bachat Book ${roleLabel} home`}
           >
             <Logo size="md" />
           </Link>
 
-          <span className="hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
-          <span className="hidden text-xs font-medium text-muted-foreground sm:block">
+          {/* Desktop: role label */}
+          <span className="hidden select-none h-6 w-px bg-border md:block" aria-hidden="true" />
+          <span className="hidden text-xs font-medium text-muted-foreground md:block">
             {roleLabel}
           </span>
 
+          {/* Desktop: inline navigation */}
           <nav aria-label={`${roleLabel} navigation`} className="ml-4 hidden gap-1 md:flex">
-            {navigation.map((item) => (
-              <NavLink
-                key={item.href}
-                to={item.href}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary-soft text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4" aria-hidden="true" />
-                {item.label}
-              </NavLink>
-            ))}
-            {moreNavigation.length > 0 ? (
+            {desktopItems.map((item, index) => {
+              const optional = index >= 4
+              return (
+                <NavLink
+                  key={item.href}
+                  to={item.href}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                      optional ? 'hidden lg:inline-flex' : '',
+                      isActive
+                        ? 'bg-primary-soft text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )
+                  }
+                  aria-label={item.label}
+                >
+                  <item.icon className="h-4 w-4" aria-hidden="true" />
+                  <span className="sr-only min-[1280px]:not-sr-only">{item.label}</span>
+                </NavLink>
+              )
+            })}
+            {desktopMoreItems.length > 0 ? (
               <MoreMenu
-                items={moreNavigation}
-                active={isMoreActive}
+                items={desktopMoreItems}
+                active={isDrawerMenuActive}
                 onNavigate={(href) => void navigate(href)}
               />
             ) : null}
@@ -87,33 +125,32 @@ export function AppShell({ homeHref, roleLabel, navigation, moreNavigation = [] 
         </div>
       </header>
 
-      <main id="main-content" className="mx-auto w-full max-w-3xl px-4 py-5 pb-28 sm:py-6 md:pb-10">
+      <main
+        id="main-content"
+        className="mx-auto w-full max-w-7xl space-y-0 px-4 py-5 pb-28 sm:px-6 sm:py-6 md:pb-10"
+      >
         <Suspense fallback={<PageLoading />}>
           <Outlet />
         </Suspense>
       </main>
 
-      <footer className="mx-auto w-full max-w-3xl px-4 pb-6 md:pb-8">
+      <footer className="mx-auto w-full max-w-7xl px-4 pb-6 sm:px-6 md:pb-8">
         <p className="text-xs text-muted-foreground/70">Bachat Book · Together We Save. Simply.</p>
       </footer>
 
+      {/* Mobile: bottom tab bar with exactly four destinations */}
       <nav
         aria-label={`${roleLabel} navigation mobile`}
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur md:hidden"
       >
-        <div
-          className="mx-auto grid max-w-lg px-2"
-          style={{
-            gridTemplateColumns: `repeat(${navigation.length + (moreNavigation.length > 0 ? 1 : 0)}, minmax(0, 1fr))`,
-          }}
-        >
+        <div className="mx-auto grid max-w-lg grid-cols-4 px-2">
           {navigation.map((item) => (
             <NavLink
               key={item.href}
               to={item.href}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium transition-colors',
+                  'flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-0.5 text-[10px] min-[360px]:text-[11px] font-medium transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
                 )
               }
@@ -122,16 +159,16 @@ export function AppShell({ homeHref, roleLabel, navigation, moreNavigation = [] 
               <span className="max-w-full truncate">{item.label}</span>
             </NavLink>
           ))}
-          {moreNavigation.length > 0 ? (
-            <MoreMenu
-              items={moreNavigation}
-              active={isMoreActive}
-              side="top"
-              onNavigate={(href) => void navigate(href)}
-            />
-          ) : null}
         </div>
       </nav>
+
+      <AppDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        items={drawerNavigation}
+        homeHref={homeHref}
+        roleLabel={roleLabel}
+      />
     </div>
   )
 }
@@ -151,15 +188,15 @@ function MoreMenu({
     <DropdownMenu
       label="More navigation"
       side={side}
-      className="flex justify-center"
+      className="flex items-center"
       trigger={
         <span
           className={cn(
-            'flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-medium md:min-h-10 md:flex-row md:gap-2 md:px-3 md:text-sm',
+            'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium md:min-h-10 md:gap-2 md:px-3 md:text-sm',
             active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
           )}
         >
-          <Ellipsis className="h-5 w-5 md:h-4 md:w-4" aria-hidden="true" />
+          <Ellipsis className="h-4 w-4" aria-hidden="true" />
           <span>More</span>
         </span>
       }

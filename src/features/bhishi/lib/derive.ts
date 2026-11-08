@@ -314,6 +314,12 @@ export function groupNameForCycle(snapshot: BhishiSnapshot, cycleId: string): st
 export function paymentOptions(snapshot: BhishiSnapshot): PaymentOption[] {
   const options: PaymentOption[] = []
   for (const cycle of snapshot.cycles) {
+    if (
+      snapshot.groups.find((group) => group.group.id === cycle.cycle.group_id)?.group.status ===
+      'archived'
+    ) {
+      continue
+    }
     const groupName = groupNameForCycle(snapshot, cycle.cycle.id)
     for (const installment of cycle.installments) {
       for (const obligation of installment.obligations) {
@@ -334,6 +340,12 @@ export function paymentOptions(snapshot: BhishiSnapshot): PaymentOption[] {
 export function payoutOptions(snapshot: BhishiSnapshot): PayoutOption[] {
   const options: PayoutOption[] = []
   for (const cycle of snapshot.cycles) {
+    if (
+      snapshot.groups.find((group) => group.group.id === cycle.cycle.group_id)?.group.status ===
+      'archived'
+    ) {
+      continue
+    }
     const groupName = groupNameForCycle(snapshot, cycle.cycle.id)
     for (const installment of cycle.installments) {
       if (installment.payout || !installment.recipient) continue

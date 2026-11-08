@@ -22,6 +22,7 @@ roles and the `auth.user_id()` identity function).
 | `00014_auth_signup_and_role_management.sql`       | Member profile provisioning, audited role/access RPCs, and identity-bound initial-admin setup | **Applied**                   |
 | `00015_add_profiles_to_group.sql`                 | Trusted admin-only RPC `add_profiles_to_group()` linking registered profiles to groups        | **Applied**                   |
 | `00016_recipient_excluded_contribution_logic.sql` | Recipient-excluded contribution model; payout refused while outstanding                       | **Applied**                   |
+| `00017_group_delete_and_archive.sql`              | Admin-only empty-group deletion and history-preserving archive RPCs; blocks archived writes   | **New**                       |
 
 ## Migration history
 
@@ -33,7 +34,7 @@ preserve.
 The original seven files are archived verbatim in
 [`../legacy/sprint-2-supabase-baseline/`](../legacy/sprint-2-supabase-baseline/) for reference.
 They must **not** be applied to a Neon database. The files in this directory are the Neon baseline,
-followed by migrations `00008`–`00014`.
+followed by migrations `00008`–`00017`.
 
 `00009` is the first migration that adds a write workflow rather than a table: it wraps cycle
 activation in one `SECURITY DEFINER` transaction so a half-generated schedule can never be left
@@ -86,8 +87,14 @@ set to contribution × (participating members − 1). The `record_payout()` func
 record while required obligations for the installment remain outstanding. Apply after `00015`; no
 earlier migration is modified.
 
-From this point on, these files are append-only. Never edit a migration that has been applied to a
-persistent Neon database; add the next numbered file instead.
+`00017` adds admin-only transactional `archive_group()` and `delete_empty_group()` operations.
+Deletion requires the exact current group name and is refused when cycles or transactions exist;
+it removes only the group's membership associations and retains an append-only deletion audit
+record. Groups with history are archived. Direct status changes and cycle-structure writes are
+restricted to trusted workflows, and triggers reject new memberships, cycles, payments and payouts
+for archived groups. Apply after `00016`; no existing migration is modified. All applied migrations
+are append-only. Never edit a migration that has been applied to a persistent Neon database; add
+the next numbered file instead.
 
 ## Prerequisites
 
@@ -97,7 +104,8 @@ persistent Neon database; add the next numbered file instead.
    confirming the target branch. `00014` includes the one-time setup for the existing initial-admin
    identity specified by the project owner. `00015` adds `add_profiles_to_group()` and must be applied
    after `00014` if this flow is used. `00016` implements the recipient-excluded contribution model and
-   its payout gate; review it before applying to a branch that holds live cycles.
+   its payout gate; review it before applying to a branch that holds live cycles. `00017` adds
+   lifecycle RPCs and archived-write guards; review it before applying as well.
 4. `DATABASE_URL` points at the branch using the **direct** (non-pooled) connection string, and is
    available only to your shell / CI, never to browser code.
 

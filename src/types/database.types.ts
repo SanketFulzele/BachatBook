@@ -600,6 +600,7 @@ export type Database = {
         Returns: boolean
       }
       claim_initial_admin: { Args: never; Returns: string }
+      archive_group: { Args: { target_group_id: string }; Returns: string }
       create_cycle_draft: {
         Args: {
           collection_day: number
@@ -629,6 +630,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_group_member: { Args: { target_group_id: string }; Returns: boolean }
+      delete_empty_group: {
+        Args: { confirmation_name: string; target_group_id: string }
+        Returns: string
+      }
       record_payment: {
         Args: {
           payment_amount: number

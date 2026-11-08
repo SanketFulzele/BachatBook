@@ -9,6 +9,12 @@
 
 begin;
 
+comment on type public.group_status is
+  'Group lifecycle. Groups with cycle or financial history are archived; empty groups may be deleted.';
+
+comment on table public.bhishi_groups is
+  'Bhishi group settings. Groups with history are archived; groups without history may be deleted.';
+
 -- Group lifecycle changes must use the trusted RPCs below. Group settings may
 -- still be edited directly by administrators, but clients cannot set status.
 revoke update on public.bhishi_groups from authenticated;
@@ -37,7 +43,7 @@ begin
     into v_status
     from public.bhishi_groups g
    where g.id = target_group_id
-     for key share;
+     for share;
 
   if not found then
     raise exception 'Group not found'
@@ -129,6 +135,27 @@ begin
 
   if v_group.status = 'archived' then
     return v_group.id;
+  end if;
+
+  if not exists (
+    select 1
+      from public.cycles c
+     where c.group_id = target_group_id
+  ) and not exists (
+    select 1
+      from public.payments p
+      join public.installments i on i.id = p.installment_id
+      join public.cycles c on c.id = i.cycle_id
+     where c.group_id = target_group_id
+  ) and not exists (
+    select 1
+      from public.payouts p
+      join public.installments i on i.id = p.installment_id
+      join public.cycles c on c.id = i.cycle_id
+     where c.group_id = target_group_id
+  ) then
+    raise exception 'Groups without cycle or financial history should be deleted instead of archived'
+      using errcode = '23514';
   end if;
 
   update public.bhishi_groups

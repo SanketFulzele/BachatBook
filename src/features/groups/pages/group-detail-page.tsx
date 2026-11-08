@@ -1,14 +1,31 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, HandCoins, Link2, Plus, UsersRound, Wallet } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  Archive,
+  ArrowLeft,
+  CalendarDays,
+  Ellipsis,
+  HandCoins,
+  Link2,
+  Plus,
+  Trash2,
+  UsersRound,
+  Wallet,
+} from 'lucide-react'
 import { PageHeader } from '@/components/common/page-header'
+import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown'
+import { Input } from '@/components/ui/input'
+import { useToast } from '@/components/ui/toast-context'
 import { PageLoading } from '@/components/feedback/page-loading'
 import { ROUTES } from '@/lib/constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { useAuth } from '@/features/auth/components/auth-context'
 import { ActivateCycleDialog } from '@/features/bhishi/components/activate-cycle-dialog'
 import { AddMemberDialog } from '@/features/bhishi/components/add-member-dialog'
 import { ChitOrderEditor } from '@/features/bhishi/components/chit-order-editor'
@@ -20,7 +37,11 @@ import { LinkLoginDialog } from '@/features/bhishi/components/link-login-dialog'
 import { MemberList } from '@/features/bhishi/components/member-list'
 import { RecordPaymentDialog } from '@/features/bhishi/components/record-payment-dialog'
 import { RecordPayoutDialog } from '@/features/bhishi/components/record-payout-dialog'
-import { useBhishiData } from '@/features/bhishi/hooks/use-bhishi'
+import {
+  useArchiveGroup,
+  useBhishiData,
+  useDeleteEmptyGroup,
+} from '@/features/bhishi/hooks/use-bhishi'
 import { cycleProgress, paymentOptions, payoutOptions } from '@/features/bhishi/lib/derive'
 import type { InstallmentView, MemberRow, ObligationView } from '@/features/bhishi/types'
 
@@ -33,13 +54,20 @@ const groupStatusLabel = {
 
 export function GroupDetailPage() {
   const { groupId = '' } = useParams()
+  const navigate = useNavigate()
+  const auth = useAuth()
+  const { toast } = useToast()
   const query = useBhishiData()
+  const archiveMutation = useArchiveGroup()
+  const deleteMutation = useDeleteEmptyGroup()
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [createCycleOpen, setCreateCycleOpen] = useState(false)
   const [activateCycleOpen, setActivateCycleOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [payoutOpen, setPayoutOpen] = useState(false)
   const [linkMember, setLinkMember] = useState<MemberRow | null>(null)
+  const [manageAction, setManageAction] = useState<'archive' | 'delete' | null>(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [initialObligationId, setInitialObligationId] = useState<string>()
   const [initialInstallmentId, setInitialInstallmentId] = useState<string>()
 
@@ -77,6 +105,9 @@ export function GroupDetailPage() {
   }
 
   const status = groupStatusLabel[group.group.status]
+  const isAdmin = auth.user?.role === 'admin'
+  const isArchived = group.group.status === 'archived'
+  const hasHistory = group.cycles.length > 0
   const activeCycle = group.activeCycle
   const draftCycle = group.draftCycle
   const summaryCycle = activeCycle ?? draftCycle
@@ -100,6 +131,31 @@ export function GroupDetailPage() {
     setPayoutOpen(true)
   }
 
+  const archiveGroup = () => {
+    archiveMutation.mutate(group.group.id, {
+      onSuccess: () => {
+        toast({
+          title: 'Group archived',
+          description: 'Its history remains available.',
+          variant: 'success',
+        })
+        setManageAction(null)
+      },
+    })
+  }
+
+  const deleteGroup = () => {
+    deleteMutation.mutate(
+      { groupId: group.group.id, confirmationName: deleteConfirmation },
+      {
+        onSuccess: () => {
+          toast({ title: 'Group deleted', variant: 'success' })
+          void navigate(ROUTES.admin.groups, { replace: true })
+        },
+      },
+    )
+  }
+
   return (
     <div className="space-y-5">
       <Link
@@ -114,23 +170,66 @@ export function GroupDetailPage() {
         title={group.group.name}
         description={group.group.description ?? 'Monthly family Bhishi.'}
         actions={
-          <>
-            <Button
-              size="lg"
-              variant="outline"
-              leftIcon={<Plus className="h-4 w-4" />}
-              onClick={() => setAddMemberOpen(true)}
-            >
-              Add member
-            </Button>
-            {!activeCycle && !draftCycle ? (
-              <Button size="lg" onClick={() => setCreateCycleOpen(true)}>
-                Create cycle
-              </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {!isArchived ? (
+              <>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  leftIcon={<Plus className="h-4 w-4" />}
+                  onClick={() => setAddMemberOpen(true)}
+                >
+                  Add member
+                </Button>
+                {!activeCycle && !draftCycle ? (
+                  <Button size="lg" onClick={() => setCreateCycleOpen(true)}>
+                    Create cycle
+                  </Button>
+                ) : null}
+              </>
             ) : null}
-          </>
+            {isAdmin && (!isArchived || !hasHistory) ? (
+              <div className="ml-1 border-l border-border pl-2">
+                <DropdownMenu
+                  label="Group actions"
+                  trigger={
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
+                      <Ellipsis className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                  }
+                >
+                  {hasHistory ? (
+                    !isArchived ? (
+                      <DropdownMenuItem
+                        icon={Archive}
+                        destructive
+                        onSelect={() => setManageAction('archive')}
+                      >
+                        Archive group
+                      </DropdownMenuItem>
+                    ) : null
+                  ) : (
+                    <DropdownMenuItem
+                      icon={Trash2}
+                      destructive
+                      onSelect={() => setManageAction('delete')}
+                    >
+                      Delete group
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenu>
+              </div>
+            ) : null}
+          </div>
         }
       />
+
+      {isArchived ? (
+        <Alert variant="warning" title="Archived group">
+          This group is read-only. Historical cycles and financial records remain available, but new
+          members, cycles, payments and payouts are disabled.
+        </Alert>
+      ) : null}
 
       <Card>
         <CardContent className="space-y-4 p-4 sm:p-5">
@@ -180,21 +279,26 @@ export function GroupDetailPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-secondary">Members</h2>
-          <Button
-            size="sm"
-            variant="ghost"
-            leftIcon={<Plus className="h-3.5 w-3.5" />}
-            onClick={() => setAddMemberOpen(true)}
-          >
-            Add
-          </Button>
+          {!isArchived ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+              onClick={() => setAddMemberOpen(true)}
+            >
+              Add
+            </Button>
+          ) : null}
         </div>
         {group.members.length === 0 ? (
           <p className="rounded-xl border border-border bg-card px-3 py-4 text-sm text-muted-foreground">
             No members yet. Add at least two people to start a cycle.
           </p>
         ) : (
-          <MemberList members={group.members} onLinkLogin={(member) => setLinkMember(member)} />
+          <MemberList
+            members={group.members}
+            onLinkLogin={isArchived ? undefined : (member) => setLinkMember(member)}
+          />
         )}
       </section>
 
@@ -215,17 +319,34 @@ export function GroupDetailPage() {
                 {draftCycle.cycle.collection_day_snapshot}
               </p>
             </div>
-            <Button size="lg" onClick={() => setActivateCycleOpen(true)}>
-              Activate cycle
-            </Button>
+            {!isArchived ? (
+              <Button size="lg" onClick={() => setActivateCycleOpen(true)}>
+                Activate cycle
+              </Button>
+            ) : null}
           </div>
 
-          <div className="rounded-xl bg-muted/60 px-3.5 py-2.5 text-sm text-muted-foreground">
-            Arrange the order below, then activate. Members cannot see this cycle until it is
-            activated.
-          </div>
+          {!isArchived ? (
+            <div className="rounded-xl bg-muted/60 px-3.5 py-2.5 text-sm text-muted-foreground">
+              Arrange the order below, then activate. Members cannot see this cycle until it is
+              activated.
+            </div>
+          ) : null}
 
-          <ChitOrderEditor cycle={draftCycle} />
+          {isArchived ? (
+            <div className="divide-y divide-border rounded-xl border border-border bg-card">
+              {draftCycle.members.map((entry) => (
+                <div key={entry.cycleMember.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+                    {entry.cycleMember.chit_number}
+                  </span>
+                  <span className="truncate text-sm font-medium">{entry.member.full_name}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <ChitOrderEditor cycle={draftCycle} />
+          )}
         </section>
       ) : null}
 
@@ -247,24 +368,28 @@ export function GroupDetailPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                leftIcon={<HandCoins className="h-3.5 w-3.5" />}
-                onClick={() => openPayment()}
-                disabled={options.length === 0}
-              >
-                Record payment
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                leftIcon={<Wallet className="h-3.5 w-3.5" />}
-                onClick={() => openPayout()}
-                disabled={payoutChoices.length === 0}
-              >
-                Record payout
-              </Button>
+              {!isArchived ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    leftIcon={<HandCoins className="h-3.5 w-3.5" />}
+                    onClick={() => openPayment()}
+                    disabled={options.length === 0}
+                  >
+                    Record payment
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    leftIcon={<Wallet className="h-3.5 w-3.5" />}
+                    onClick={() => openPayout()}
+                    disabled={payoutChoices.length === 0}
+                  >
+                    Record payout
+                  </Button>
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -316,14 +441,14 @@ export function GroupDetailPage() {
             <h3 className="mb-2 text-sm font-semibold text-secondary">Cycle schedule</h3>
             <InstallmentList
               cycle={activeCycle}
-              onRecordPayment={openPayment}
-              onRecordPayout={openPayout}
+              onRecordPayment={isArchived ? undefined : openPayment}
+              onRecordPayout={isArchived ? undefined : openPayout}
             />
           </div>
         </section>
       ) : null}
 
-      {!activeCycle && !draftCycle && previousCycles.length === 0 ? (
+      {!isArchived && !activeCycle && !draftCycle && previousCycles.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 p-6 text-center sm:p-7">
             <h2 className="text-base font-semibold text-secondary">Ready to start?</h2>
@@ -409,6 +534,89 @@ export function GroupDetailPage() {
         profiles={snapshot.profiles}
         linkedProfileIds={linkedProfileIds}
       />
+      <Dialog
+        open={manageAction === 'delete'}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) {
+            setManageAction(null)
+            setDeleteConfirmation('')
+          }
+        }}
+        title="Delete this group?"
+        description="This group has no financial history. Deleting it will permanently remove the group and its member associations. This action cannot be undone."
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setManageAction(null)
+                setDeleteConfirmation('')
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={deleteGroup}
+              isLoading={deleteMutation.isPending}
+              disabled={deleteConfirmation !== group.group.name}
+            >
+              Delete group
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <label htmlFor="delete-group-confirmation" className="text-sm font-medium">
+            Type <span className="font-semibold">{group.group.name}</span> to confirm
+          </label>
+          <Input
+            id="delete-group-confirmation"
+            value={deleteConfirmation}
+            onChange={(event) => setDeleteConfirmation(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {deleteMutation.error ? (
+            <Alert variant="error" title="Could not delete group">
+              {deleteMutation.error.message}
+            </Alert>
+          ) : null}
+        </div>
+      </Dialog>
+      <Dialog
+        open={manageAction === 'archive'}
+        onOpenChange={(open) => {
+          if (!open && !archiveMutation.isPending) setManageAction(null)
+        }}
+        title="Archive this group?"
+        description="This group has cycle or financial history. Archiving preserves its history and prevents new activity."
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setManageAction(null)}
+              disabled={archiveMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={archiveGroup}
+              isLoading={archiveMutation.isPending}
+            >
+              Archive group
+            </Button>
+          </>
+        }
+      >
+        {archiveMutation.error ? (
+          <Alert variant="error" title="Could not archive group">
+            {archiveMutation.error.message}
+          </Alert>
+        ) : null}
+      </Dialog>
     </div>
   )
 }

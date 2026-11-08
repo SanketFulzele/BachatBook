@@ -104,6 +104,26 @@ export async function createGroup(input: {
   return data
 }
 
+export async function archiveGroup(groupId: string): Promise<void> {
+  const { error } = await getNeonDataApi().rpc('archive_group', {
+    target_group_id: groupId,
+  })
+
+  if (error) fail(error)
+}
+
+export async function deleteEmptyGroup(input: {
+  groupId: string
+  confirmationName: string
+}): Promise<void> {
+  const { error } = await getNeonDataApi().rpc('delete_empty_group', {
+    target_group_id: input.groupId,
+    confirmation_name: input.confirmationName,
+  })
+
+  if (error) fail(error)
+}
+
 export async function addGroupMember(input: {
   groupId: string
   fullName: string

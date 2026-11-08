@@ -116,7 +116,15 @@ export function PayoutsPage() {
                 {cycle.cycle.status}
               </Badge>
             </div>
-            <InstallmentList cycle={cycle} onRecordPayout={openPayout} />
+            <InstallmentList
+              cycle={cycle}
+              onRecordPayout={
+                snapshot.groups.find((group) => group.group.id === cycle.cycle.group_id)?.group
+                  .status === 'archived'
+                  ? undefined
+                  : openPayout
+              }
+            />
           </section>
         ))
       )}
