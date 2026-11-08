@@ -5,12 +5,13 @@
 > migration workflow and trusted administrator provisioning.
 >
 > **Status:** the hosted Neon project **BachatBook** is provisioned (production branch active) with Neon
-> Auth and the Data API enabled. Migrations `00001`–`00010` have been applied to that branch; migrations
-> `00011`–`00014` are pending deployment. The hosted schema has all 11 existing application tables under RLS,
-> 31 policies (zero `DELETE` policies), and `auth.user_id()` executes successfully. Migrations
-> `00001`–`00010` were validated first on a local PostgreSQL 18.4
-> instance. Authenticated behaviour under a real session is still pending. See
-> [Verification](#15-verification) and [Known limitations](#16-known-limitations).
+> Auth and the Data API enabled. Migrations `00001`–`00016` have been applied to that branch
+> (00011–00016 on 2026-11-08). The hosted schema has all 11 application tables plus
+> `initial_admin_setup` under the RLS/privilege model, 30 policies, zero `DELETE` policies, and all
+> workflow functions granted to `authenticated` only. Hosted schema structure and the deployed
+> signup/role-management and add-registered-members behaviour were verified with 18 + 32 rollback-only
+> checks (no test data committed). Authenticated behaviour through a real browser session is still
+> pending. See [Verification](#15-verification) and [Known limitations](#16-known-limitations).
 
 ---
 
@@ -82,6 +83,8 @@ db/
 │   ├── 00012_secure_payment_operations.sql
 │   ├── 00013_secure_payout_operations.sql
 │   ├── 00014_auth_signup_and_role_management.sql
+│   ├── 00015_add_profiles_to_group.sql
+│   ├── 00016_recipient_excluded_contribution_logic.sql
 │   └── README.md
 ├── legacy/
 │   └── sprint-2-supabase-baseline/   # archived original files; never apply
@@ -524,6 +527,48 @@ public.void_payout(target_payout_id uuid, void_reason text) returns uuid
 - The recorded amount is independent of expected collection. Voided payouts are excluded from schedule
   status and totals; no fees or automatic calculations are applied.
 
+### 9.10 Adding registered members to a group
+
+`00015_add_profiles_to_group.sql` adds the trusted Add-Member workflow:
+
+```sql
+public.add_profiles_to_group(
+  target_group_id uuid,
+  target_profile_ids uuid[]
+) returns integer
+```
+
+- Requires an active administrator via `public.current_profile_id()` and `public.is_admin()`; `EXECUTE`
+  is revoked from `PUBLIC` and granted only to `authenticated`.
+- Rejects a missing or archived group, and any profile that is missing or has `is_active = false`.
+  The profile row is locked early in the transaction.
+- For each target profile, reuses the existing `public.members` row linked via `profile_id`; when none
+  exists, inserts one from the profile's `full_name`, `email` and `phone`. No new Auth account or
+  duplicate profile is created.
+- Inserts into `public.group_members` idempotently with `on conflict (group_id, member_id) do nothing`.
+  The count of newly added memberships is returned and one `group_members_added` audit row is written
+  only when at least one membership is applied.
+- The Add Member dialog replaces the old manual name/phone/email entry form: the admin searches
+  registered users by name or email and multi-selects eligible profiles; already-in-group and inactive
+  users are excluded client-side. The frontend calls the RPC and invalidates the Bhishi snapshot.
+
+### 9.11 Recipient-excluded contribution model
+
+`00016_recipient_excluded_contribution_logic.sql` replaces both cycle-activation functions and the
+`record_payout()` function:
+
+- When a cycle is activated, each installment's recipient (taken from the saved chit order) is excluded
+  from that installment's `contribution_obligations`. Contributions are owed by the other participating
+  members only, each for the configured contribution amount. Installments carry
+  `contribution_amount × (total_members − 1)` as their `expected_amount`.
+- `record_payout()` now refuses to record a payout while any obligation for that installment remains
+  outstanding. It computes the expected total and the collected total from obligations and non-voided
+  payments under row-level locks, and writes the expected/collected totals into the payout audit row.
+  This is permanently enforced at the database; admins still enter the actual payout date and amount.
+- Historical obligations and payments are untouched. Groups with no cycles are unaffected; if a live
+  pending cycle existed, it would need a reviewed, separate recalculation decision before activation —
+  not an automatic rewrite.
+
 ---
 
 ## 10. Neon client and environment
@@ -615,23 +660,44 @@ column, policy or grant, and leaves `activate_cycle(...)` untouched for backward
 
 **Sprint 6 adds `00011_collection_day_due_dates.sql`.** It replaces both activation functions so scheduled
 dates use the saved collection day (clamped to month-end), and adds a private date-calculation helper.
-The migration does not change tables, constraints or RLS policies and has not yet been applied to the
-hosted branch. Apply it after approval; do not edit migrations `00001`–`00010`.
+The migration does not change tables, constraints or RLS policies. Applied to the hosted branch on
+2026-11-08.
 
 **Sprint 7 adds `00012_secure_payment_operations.sql`.** It installs the admin-only payment RPCs, revokes
-direct payment writes and limits member payment reads to their own rows. Apply it after `00011`. Both
-Sprint 6 and Sprint 7 migrations are pending deployment and require verification against the target
-PostgreSQL schema.
+direct payment writes and limits member payment reads to their own rows. Applied to the hosted branch
+after `00011` on 2026-11-08.
 
 **Sprint 8 adds `00013_secure_payout_operations.sql`.** It installs admin-only transactional payout
 recording and voiding, derives the recipient from the installment, writes audit entries, and revokes
-direct payout writes without weakening existing RLS. Apply it after `00012`.
+direct payout writes without weakening existing RLS. Applied to the hosted branch after `00012` on
+2026-11-08.
 
 **Authentication implementation adds `00014_auth_signup_and_role_management.sql`.** It replaces the
 member-profile provisioning function, restricts profile column updates, adds audited admin access
 changes, revokes direct audit inserts, and adds the one-time identity-bound initial-admin claim.
-Migrations `00011`–`00014` are pending deployment and must be validated in order; no hosted database
-was changed for this implementation.
+Applied to the hosted branch on 2026-11-08. Because an application Admin already existed, the
+migration seeded `initial_admin_setup` with the owner profile `518d403a-a5eb-4f7d-afbb-a600f8923afa`
+(Neon Auth id `25c8d456-…99c`), making the claim flow permanently disabled — the intended end state.
+
+**Add-member implementation adds `00015_add_profiles_to_group.sql`.** It adds the trusted admin-only
+RPC that links existing registered profiles to a Bhishi group atomically and idempotently: the caller
+identity is derived from the JWT, the target profiles must exist and be active, a missing/archived
+group is rejected, each profile's `members` row is reused or created from its profile details,
+`group_members` rows are inserted with `on conflict (group_id, member_id) do nothing`, and one
+`group_members_added` audit row is written only when at least one membership is actually applied.
+Applied to the hosted branch on 2026-11-08 and verified there with 32 rollback-only checks; the
+transaction was rolled back and left no test data. The frontend uses this RPC from the Add Member
+dialog (search-and-select instead of free-form manual entry).
+
+**Recipient-excluded contribution model in `00016_recipient_excluded_contribution_logic.sql`.** It
+replaces both cycle-activation functions so the scheduled installment recipient is excluded from that
+installment's `contribution_obligations`; obligations are created for the other participating members
+only, each for the configured contribution amount. The installment `expected_amount` is set to
+contribution × (participating members − 1). `record_payout()` now refuses to record while any
+obligation for the installment remains outstanding, writing expected/collected totals into the payout
+audit row. Applied to the hosted branch on 2026-11-08 and verified there with 38 rollback-only checks
+covering three-member and five-member groups, payout gating, idempotent audit and rollback
+cleanliness.
 
 ### Prerequisites
 
@@ -685,14 +751,14 @@ grant usage on schema auth to authenticated, anonymous;
 grant execute on function auth.user_id() to authenticated, anonymous;
 ```
 
-Then apply the ten migrations and `db/seed.sql`. This stub is test-only and is not part of the
+Then apply the migrations and `db/seed.sql`. This stub is test-only and is not part of the
 repository or the Neon deployment.
 
 ---
 
 ## 13. Type generation
 
-`src/types/database.types.ts` was last regenerated **from the hosted schema after migration `00010`** with
+`src/types/database.types.ts` was regenerated **from the migrated hosted schema after migration `00016`** with
 the official Neon generator:
 
 ```bash
@@ -711,10 +777,11 @@ npx @neondatabase/neon-js gen-types \
 `@neon/neon-js` does not bundle the CLI; Neon's documentation recommends the package's previous name
 for the generator. The generated file works with the current SDK and is not hand-edited.
 
-**Generation source:** the committed file was last generated against the hosted production branch after
-migration `00010` was applied. It includes manually maintained signatures for later RPCs, including
-`update_user_access()` and `claim_initial_admin()`. Regenerate with `npm run generate-types` after
-applying pending migration `00014` and review/commit the generated diff.
+**Generation source:** the committed file was last generated against the hosted production branch
+after migration `00016` was applied (2026-11-08). All function signatures, including
+`update_user_access()`, `claim_initial_admin()`, `add_profiles_to_group()`, `record_payment()`,
+`void_payment()`, `record_payout()`, `void_payout()` and `cycle_installment_due_date()`, plus the
+`initial_admin_setup` table, come from the migrated hosted schema.
 
 ---
 
@@ -839,7 +906,9 @@ Real JWT-authenticated invocation through the Data API is still pending.
 
 Sprint 3 implemented the client-side session provider, guards, onboarding and password-reset calls. Sprint
 4 added the Bhishi workflow and cycle-activation function. Sprint 5 added the draft/chit-order workflow.
-The following still require a provisioned hosted account:
+The following still require a provisioned hosted account (the database/RPC logic for signup
+provisioning, role management, audit behaviour and profile RLS is now verified on the hosted branch —
+see the 2026-11-08 record below — but not through the running app with real sessions):
 
 - Successful Neon Auth sign-in/sign-out and session persistence.
 - Administrator user and profile provisioning.
@@ -853,6 +922,75 @@ The following still require a provisioned hosted account:
 - `create_cycle_draft()`, `set_cycle_chit_order()` and `activate_cycle_draft()` through the Data API under a
   real admin JWT, and draft visibility under a real member JWT. Their SQL logic was verified inside a
   rollback-only hosted transaction with mocked identity helpers.
+
+### Migrations 00011–00014 hosted verification (2026-11-08)
+
+All four migrations were applied to the hosted production branch in numeric order via a direct SQL
+connection, then verified there:
+
+| Check                                                     | Result                                                                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `00011`–`00014` applied                                   | ✅ Each completed without error; branch is at `00014`                                         |
+| `cycle_installment_due_date(date,integer,integer)` exists | ✅ Present, immutable helper                                                                  |
+| `record_payment`/`void_payment` RPCs exist                | ✅ Executable by `authenticated` only                                                         |
+| `record_payout`/`void_payout` RPCs exist                  | ✅ Executable by `authenticated` only                                                         |
+| Direct `payments`/`payouts` INSERT/UPDATE privileges      | ✅ Revoked from all client roles                                                              |
+| `ensure_own_profile(text,text,text)` exists               | ✅ Signed to `authenticated` only, forces `member`                                            |
+| `update_user_access(uuid,user_role,boolean)` exists       | ✅ Signed to `authenticated` only, audit-logged, advisory-locked                              |
+| `claim_initial_admin()` exists                            | ✅ Bound to the owner Auth id/email; setup marker seeded, flow disabled                       |
+| `initial_admin_setup` table                               | ✅ Present, exactly one row, no client privileges                                             |
+| `profiles` UPDATE grant                                   | ✅ Column-level `full_name, phone` only                                                       |
+| DELETE policies                                           | ✅ Zero across the public schema                                                              |
+| RLS policy count                                          | ✅ 30 (no stale `profiles_update_own_or_admin`)                                               |
+| Structural post-apply checks                              | ✅ 18 passed                                                                                  |
+| Behavioural rollback-only checks                          | ✅ 90 passed (provisioning, access RPC, audit trail, profiles RLS, trigger guard, claim flow) |
+| Types regenerated from the migrated hosted schema         | ✅ `npm run generate-types`; all new functions/tables present                                 |
+| Hosted database left unchanged after verification         | ✅ Rolled back; still one profile, zero groups/members/audit rows                             |
+
+### Migration 00015 hosted verification (2026-11-08)
+
+The Add-Member migration was applied to the hosted production branch via a direct SQL connection,
+then verified in a single rollback-only transaction that was rolled back:
+
+| Check                                             | Result                                                                                       |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `00015_add_profiles_to_group.sql` applied         | ✅ Completed without error; branch is at `00015`                                             |
+| `add_profiles_to_group(uuid, uuid[])` exists      | ✅ Executable by `authenticated` only                                                        |
+| Adding two registered members in one call         | ✅ Two linked members, two `active` memberships                                              |
+| Idempotency of repeat add                         | ✅ 0 added; no duplicate `group_members` or `members` rows                                   |
+| Inactive profile refused                          | ✅ `P0002` “missing or is inactive”                                                          |
+| Member-role caller refused                        | ✅ `42501` “An active administrator session is required”                                     |
+| Existing linked member row reused                 | ✅ Exactly one `members` row per profile                                                     |
+| Missing group refused                             | ✅ `P0002` “The target group was not found or is archived”                                   |
+| Archived group refused                            | ✅ Same error; restored to draft after                                                       |
+| Empty selection refused                           | ✅ `22023` “Select at least one registered member to add”                                    |
+| Audit behaviour                                   | ✅ `group_members_added` row only when ≥1 membership applied; actor from the JWT             |
+| Source-level checks                               | ✅ Advisory lock, `is_admin()`, audit action, `on conflict (group_id, member_id) do nothing` |
+| Hosted database left unchanged after verification | ✅ Rolled back; still one profile, zero groups/members/audit rows                            |
+| Types regenerated from the migrated hosted schema | ✅ `npm run generate-types`; includes `add_profiles_to_group`                                |
+| Static checks (typecheck, lint, build, format)    | ✅ Passed                                                                                    |
+
+### Migration 00016 hosted verification (2026-11-08)
+
+The recipient-excluded contribution migration was applied to the hosted production branch and
+verified in a single rollback-only transaction that was rolled back:
+
+| Check                                                     | Result                                                                                          |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `00016_recipient_excluded_contribution_logic.sql` applied | ✅ Completed without error; branch is at `00016`                                                |
+| Legacy `activate_cycle()` path regenerates installments   | ✅ Three installments; each totals `contribution × contributing members` (20000)                |
+| Legacy `activate_cycle_draft()` path                      | ✅ Draft activation generates the same recipient-excluded model                                 |
+| Recipient excluded from obligations                       | ✅ Each installment has exactly N−1 obligations, none for the recipient                         |
+| Contribution amount per obligation                        | ✅ 10000 for the fixture; total collected per installment = 20000                               |
+| Payout with outstanding obligations refused               | ✅ `23514` “All required contributions must be received before recording the payout”            |
+| Remaining after one payer                                 | ✅ Exactly 10000 remains                                                                        |
+| No partial-amount bypass                                  | ✅ Payout blocked after first payer; allowed only after all contributors pay                    |
+| Payout after full collection                              | ✅ Recipient derived from installment, `recorded_by` = acting admin from the JWT, one audit row |
+| Audit row for payout                                      | ✅ Exactly one `payout.recorded` row; includes expected/collected totals                        |
+| Five-member group (N−1 = 4)                               | ✅ Five installments total 40000 each; four contributors per installment                        |
+| Types regenerated from the migrated hosted schema         | ✅ `npm run generate-types`; includes the updated functions                                     |
+| Hosted database left unchanged after verification         | ✅ Rolled back; still one profile, zero groups/members/audit rows                               |
+| Static checks (typecheck, lint, build, format)            | ✅ Passed                                                                                       |
 
 ---
 
@@ -874,9 +1012,10 @@ The following still require a provisioned hosted account:
    a draft row, though not change it.
 6. **Seed has no login accounts.** It cannot demonstrate authenticated RLS without first provisioning a
    real Neon Auth user and linking a member (`members.profile_id`).
-7. **Generated types must be refreshed after schema changes.** The committed baseline reflects hosted
-   migration `00010`, with later RPC signatures maintained locally. Regenerate after migration `00014`
-   is applied to the target schema.
-8. **Database and authenticated validation is pending.** Migrations `00011`–`00014` have not been
-   applied or exercised in hosted PostgreSQL. Signup, initial-admin linking, role-management, RLS,
-   session and mobile-browser checks remain pending against real accounts.
+7. **Generated types must be refreshed after schema changes.** The committed baseline was regenerated
+   from the hosted schema after migration `00016` was applied (2026-11-08). Regenerate with
+   `npm run generate-types` whenever the schema changes and review the diff.
+8. **Browser-level authenticated validation is pending.** Migrations `00011`–`00016` are applied and
+   their database behaviour verified on the hosted branch, but real hosted sign-in, browser-driven
+   signup/role-management flows, RLS under real Data API JWTs, session persistence and
+   mobile-browser checks remain to be run against real accounts.

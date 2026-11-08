@@ -4,6 +4,7 @@ import { queryKeys } from '@/lib/query-keys'
 import {
   activateDraftCycle,
   addGroupMember,
+  addProfilesToGroup,
   createCycleDraft,
   createGroup,
   fetchSnapshot,
@@ -59,6 +60,15 @@ export function useAddGroupMember() {
 
   return useMutation({
     mutationFn: addGroupMember,
+    onSuccess: invalidate,
+  })
+}
+
+export function useAddProfilesToGroup() {
+  const invalidate = useInvalidateBhishi()
+
+  return useMutation({
+    mutationFn: addProfilesToGroup,
     onSuccess: invalidate,
   })
 }

@@ -147,6 +147,19 @@ export async function linkMemberProfile(input: {
   if (error) fail(error)
 }
 
+export async function addProfilesToGroup(input: {
+  groupId: string
+  profileIds: string[]
+}): Promise<number> {
+  const { data, error } = await getNeonDataApi().rpc('add_profiles_to_group', {
+    target_group_id: input.groupId,
+    target_profile_ids: input.profileIds,
+  })
+
+  if (error) fail(error)
+  return data ?? 0
+}
+
 export async function createCycleDraft(input: {
   groupId: string
   name: string
@@ -200,8 +213,8 @@ export async function recordPayment(input: {
     payment_amount: input.amount,
     target_payment_date: input.paymentDate,
     target_payment_method: input.method,
-    payment_reference: input.reference.trim() || null,
-    payment_notes: input.notes.trim() || null,
+    payment_reference: input.reference.trim() || undefined,
+    payment_notes: input.notes.trim() || undefined,
   })
 
   if (error) fail(error)
@@ -228,7 +241,7 @@ export async function recordPayout(input: {
     payout_amount: input.amount,
     target_payout_date: input.payoutDate,
     target_payment_method: input.method,
-    payout_notes: input.notes.trim() || null,
+    payout_notes: input.notes.trim() || undefined,
   })
 
   if (error) fail(error)

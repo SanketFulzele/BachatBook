@@ -337,6 +337,9 @@ export function payoutOptions(snapshot: BhishiSnapshot): PayoutOption[] {
     const groupName = groupNameForCycle(snapshot, cycle.cycle.id)
     for (const installment of cycle.installments) {
       if (installment.payout || !installment.recipient) continue
+      // A payout can only be confirmed once every required contributor has paid.
+      if (installment.expectedTotal > 0 && installment.collectedAmount < installment.expectedTotal)
+        continue
       options.push({
         installment,
         groupName,

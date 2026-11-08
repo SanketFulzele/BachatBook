@@ -6,18 +6,24 @@ Bachat Book is a digital Bhishi / rotating savings group management application.
 5–10 people organise monthly contributions, chit order, collections, payouts and financial history in
 one clear place.
 
-> **Current status: Sprint 5 — Bhishi cycle drafts and manual chit order (implemented; hosted sign-in
-> verification pending).**
+> **Current status: Sprint 12 — Public Signup & Role Management (implemented; DB verified on hosted Neon);
+> browser walkthrough pending).**
 > Neon Auth sessions, profile loading, role-aware route guards, member onboarding and password reset are
-> wired. Admins can create groups, add members, create a cycle draft, arrange the chit order, confirm and
-> activate it, then record payments and payouts. Members can see their activated cycle, own chit position,
-> monthly contribution status, payout recipient and payment history. Dashboards read real database rows
-> through the Neon Data API.
+> wired. Admins can create groups, add registered members by search, create a cycle draft, arrange the
+> chit order, confirm and activate it — activation generates installments with the recipient excluded
+> from their own installment's contribution obligations. Admins can open each installment to see its due
+> date, expected collection, recipient, participating members and a paid/pending overview. Members can see
+> their activated cycle, own chit position, the full monthly installment schedule with their own
+> contribution, due date, paid/pending status and payout recipient. Payment status is always derived from
+> recorded payments. Dashboards read real database rows through the Neon Data API.
 >
 > The backend target is **Neon PostgreSQL + Neon Managed Better Auth + Neon Data API**. The schema was
-> verified against a real local PostgreSQL 18.4 instance and all ten migrations have been applied to the
-> hosted project. Successful hosted sign-in and authenticated RLS evaluation still need a provisioned test
-> account. See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for sprint history,
+> verified against a real local PostgreSQL 18.4 instance and all sixteen migrations have been applied to
+> the hosted project (migrations `00011`–`00016` on 2026-11-08; signup, role management, recipient-excluded
+> contributions and the secure payment/payout RPCs verified there at the database level in
+> rollback-only checks). Successful hosted
+> sign-in through the browser and authenticated RLS evaluation still need a provisioned test account. See
+> [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for sprint history,
 > [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) for the auth design and
 > [`docs/DATABASE_ARCHITECTURE.md`](docs/DATABASE_ARCHITECTURE.md) for the database reference.
 
@@ -217,8 +223,10 @@ Never hand-edit the generated file.
 Public signup can create **member** profiles only. The first administrator uses the website's
 `/initial-admin-setup` flow, backed by migration `00014_auth_signup_and_role_management.sql`. Its
 database function is bound to the existing owner-approved Neon Auth user ID, links the single existing
-matching application profile, and permanently disables setup after the first claim. Apply and verify
-pending migrations before using this route; see
+matching application profile, and permanently disables setup after the first claim. This migration is
+applied to the hosted branch (2026-11-08) and the setup marker was seeded with the owner profile
+because an application Admin already exists, so the claim flow is permanently disabled — the owner
+signs in directly and lands on the Admin Dashboard. See
 [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) and
 [`docs/DATABASE_ARCHITECTURE.md`](docs/DATABASE_ARCHITECTURE.md).
 
@@ -368,15 +376,18 @@ is stored as a running total in the browser.
 
 ## Sprint roadmap
 
-| Sprint | Scope                                                                                                     | Status                                    |
-| ------ | --------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| 1      | Project foundation & design system                                                                        | Completed                                 |
-| 2      | Database architecture (Neon)                                                                              | Completed                                 |
-| 3      | Authentication & security                                                                                 | In progress (hosted verification pending) |
-| 4      | Simple Bhishi workflow: groups, members, chit order, installments, payments, payouts, dashboards, profile | Implemented (hosted verification pending) |
-| 5      | Cycle drafts, manual chit order, confirmation activation and schedule viewing                             | Implemented (hosted verification pending) |
-| 6      | Automatic monthly installment generation and read-only admin/member installment viewing                   | Implemented (hosted verification pending) |
-| 7      | Testing & deployment                                                                                      | Not started                               |
+| Sprint | Scope                                                                                                     | Status                                                               |
+| ------ | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 1      | Project foundation & design system                                                                        | Completed                                                            |
+| 2      | Database architecture (Neon)                                                                              | Completed                                                            |
+| 3      | Authentication & security                                                                                 | Implemented (browser-level hosted verification pending)              |
+| 4      | Simple Bhishi workflow: groups, members, chit order, installments, payments, payouts, dashboards, profile | Implemented (browser-level hosted verification pending)              |
+| 5      | Cycle drafts, manual chit order, confirmation activation and schedule viewing                             | Implemented (browser-level hosted verification pending)              |
+| 6      | Automatic monthly installment generation and read-only admin/member installment viewing                   | Implemented (browser-level hosted verification pending)              |
+| 7–10   | Secure payment/payout RPCs, collection-day due dates, admin Members page, deployment preparation          | Implemented; migrations `00011`–`00016` applied & verified on hosted |
+| 12.5   | Add registered members to groups (search-and-select dialog, trusted admin RPC)                            | Implemented; migration `00015` applied & verified on hosted          |
+| 12.6   | Recipient-excluded contributions; payout refused while outstanding                                        | Implemented; migration `00016` applied & verified on hosted          |
+| 11     | Production deployment & launch                                                                            | In progress (Vercel SPA rewrite + real hosted sign-in still pending) |
 
 Reports, exports, audit-log UI, advanced analytics, settings and broad filters are deliberately **not**
 planned. They are not required to run a small Bhishi group and would make the app harder to use.
@@ -478,23 +489,51 @@ no auth users, so no logged-in demo member exists until an account is linked thr
 **Not verified:** authenticated invocation of the new RPCs through the hosted Data API, and the mobile
 browser walkthrough of the new dialogs. These need a provisioned admin/member test account.
 
+### Sprint 6 (2026-11-03)
+
+- `npm run typecheck` — passed, 0 errors.
+- `npm run lint` — passed, 0 errors / 0 warnings.
+- `npm run build` — passed; 2,452 modules, no chunk-size warning.
+- Prettier — all source, docs and config files formatted.
+- No new migration. Generation already happens atomically in `activate_cycle_draft()` from the cycle
+  snapshots; duplicate installments/obligations are prevented by the existing
+  `installments_unique_number` and `contribution_obligations_unique_member` constraints.
+- 79 SQL assertions passed inside a rollback-only hosted transaction with mocked identity helpers: an
+  8-member January 2027 draft generates 8 installments and 64 obligations with correct recipients, dates
+  and amounts; a forced failure during generation rolls everything back; retrying activation is rejected
+  without duplicates; partial/paid/overpaid/voided/unpaid payment cases derive the right status and
+  outstanding; member updates/inserts/deletes are denied; a later cycle never rewrites the previous one.
+- Admin installment cards expose expected collection plus an expandable "Members & status" list; member My
+  Group and My Payments show the full monthly schedule with own amount, due date, status and recipient.
+
+**Not verified:** opening the new schedule views through the hosted Data API under a real authenticated
+admin/member session, and the mobile browser walkthrough. These need a provisioned admin/member test
+account.
+
 ---
 
 ## Notes & limitations
 
-- Signup, initial-admin setup, and role management are implemented locally. Migration `00014` is pending
-  hosted deployment, and authenticated RLS behavior has **not** been verified with two real accounts.
+- Signup, initial-admin setup, role management and the add-registered-members flow are implemented and
+  their database/RPC behaviour is verified on the hosted Neon branch (migrations `00011`–`00016` applied
+  2026-11-08; 18 structural + 90 + 32 rollback-only checks). Browser-level flows still need real accounts:
+  no hosted sign-in with the owner's password or a fresh member signup has been exercised in the browser.
 - The admin and member screens are real and read the database, but they have not yet been exercised
   end-to-end against the hosted project for the same reason.
 - The seed has no auth users/profiles, so it cannot demonstrate a logged-in member until an account is
   provisioned and linked through `members.profile_id`. The group detail screen includes an admin-only
   “Link login” action for that link.
-- The existing initial administrator's complete application profile UUID and Auth link have not been
-  verified against the hosted database in this execution. Do not create another administrator account.
+- The hosted initial administrator is verified: profile `518d403a-…3afa` ↔ Auth
+  `25c8d456-…99c`, role `admin`, `is_active`, and the one-time setup marker seeded by migration
+  `00014`. Do not create another administrator account.
 - Route guards are navigation aids. PostgreSQL RLS remains the only authorization boundary.
-- `database.types.ts` reflects local RPC signatures but not a generator run against migration `00014`;
-  regenerate after the hosted migration is applied with `npm run generate-types`.
+- `database.types.ts` was regenerated against the migrated hosted schema (after migration `00016`);
+  rerun `npm run generate-types` if the schema changes.
+- Vercel deployment still serves deep links as 404s: the SPA rewrite in `vercel.json` is committed
+  locally but not deployed, and production environment variables are not verified.
 - There is no UI yet to discard a cycle draft or close an active cycle, so a group cannot start its next
   cycle from the app. Use the trusted direct-SQL process until a later sprint adds these controls.
+- Generated installments and obligations are immutable: there is no manual create/edit/regenerate screen.
+  Activation is the only generation path, so history is protected by design.
 - `npm audit` reports 12 moderate advisories in the ESLint 10 toolchain (development dependencies only);
   none affect the shipped bundle. Do not run `npm audit fix --force`.

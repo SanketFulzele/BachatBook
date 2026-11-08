@@ -46,6 +46,9 @@ export function InstallmentList({ cycle, onRecordPayment, onRecordPayout }: Inst
                 <p className="text-xs text-muted-foreground">
                   {chitNumber ? `Chit #${chitNumber}` : 'No chit position'}
                 </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Does not contribute this cycle
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Expected collection</p>
@@ -92,6 +95,22 @@ export function InstallmentList({ cycle, onRecordPayment, onRecordPayout }: Inst
                 </span>
               </summary>
               <ul className="divide-y divide-border border-t border-border">
+                {installment.recipient ? (
+                  <li className="flex items-center gap-3 px-3 py-2.5">
+                    <Avatar name={installment.recipient.full_name} size="sm" decorative />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {installment.recipient.full_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Recipient — does not contribute this cycle
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      Recipient
+                    </span>
+                  </li>
+                ) : null}
                 {installment.obligations.map((obligation) => (
                   <li
                     key={obligation.obligation.id}

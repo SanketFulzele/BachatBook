@@ -4,22 +4,24 @@ These files are the **only** migrations that should be applied. They target Neon
 assume the Neon Data API is enabled on the branch (which creates the `authenticated` and `anonymous`
 roles and the `auth.user_id()` identity function).
 
-| File                                           | Contents                                                                                      | Status                        |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------- |
-| `00001_create_enums.sql`                       | `user_role`, `group_status`, `cycle_status`, `membership_status`, `payment_method`            | Rewritten for Neon baseline   |
-| `00002_create_core_tables.sql`                 | `profiles` (with `auth_user_id` mapping), groups, members, memberships, cycles, cycle members | Rewritten for Neon baseline   |
-| `00003_create_financial_tables.sql`            | installments, obligations, payments, payouts, audit logs, void / one-payout constraints       | Superseded baseline, adapted  |
-| `00004_create_indexes.sql`                     | 14 targeted indexes                                                                           | Superseded baseline, adapted  |
-| `00005_create_helper_functions.sql`            | `current_profile_id`, `is_admin`, `is_group_member`, `can_access_*`, privilege guard          | Rewritten for Neon Auth       |
-| `00006_enable_rls.sql`                         | RLS on all 11 application tables                                                              | Superseded baseline, adapted  |
-| `00007_create_rls_policies.sql`                | 31 policies, explicit grants, immutable financial/audit tables                                | Rewritten for Neon identities |
-| `00008_add_neon_auth_profile_provisioning.sql` | `ensure_own_profile()` — member-only self-provisioning linked through `auth.user_id()`        | **New for Neon**              |
-| `00009_add_cycle_activation.sql`               | `activate_cycle()` — atomic cycle, chit order, installment and obligation generation          | **Applied**                   |
-| `00010_add_cycle_drafts.sql`                   | Draft cycle, manual chit order and atomic draft activation; one draft/active cycle per group  | **Applied**                   |
-| `00011_collection_day_due_dates.sql`           | Use each cycle's saved collection day for both activation paths                               | **Pending deployment**        |
-| `00012_secure_payment_operations.sql`          | Admin-only transactional payment recording/voiding and own-payment member read policy         | **Pending deployment**        |
-| `00013_secure_payout_operations.sql`           | Admin-only transactional payout recording/voiding, derived recipient and audit history        | **Pending deployment**        |
-| `00014_auth_signup_and_role_management.sql`    | Member profile provisioning, audited role/access RPCs, and identity-bound initial-admin setup | **Pending deployment**        |
+| File                                              | Contents                                                                                      | Status                        |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------- |
+| `00001_create_enums.sql`                          | `user_role`, `group_status`, `cycle_status`, `membership_status`, `payment_method`            | Rewritten for Neon baseline   |
+| `00002_create_core_tables.sql`                    | `profiles` (with `auth_user_id` mapping), groups, members, memberships, cycles, cycle members | Rewritten for Neon baseline   |
+| `00003_create_financial_tables.sql`               | installments, obligations, payments, payouts, audit logs, void / one-payout constraints       | Superseded baseline, adapted  |
+| `00004_create_indexes.sql`                        | 14 targeted indexes                                                                           | Superseded baseline, adapted  |
+| `00005_create_helper_functions.sql`               | `current_profile_id`, `is_admin`, `is_group_member`, `can_access_*`, privilege guard          | Rewritten for Neon Auth       |
+| `00006_enable_rls.sql`                            | RLS on all 11 application tables                                                              | Superseded baseline, adapted  |
+| `00007_create_rls_policies.sql`                   | 31 policies, explicit grants, immutable financial/audit tables                                | Rewritten for Neon identities |
+| `00008_add_neon_auth_profile_provisioning.sql`    | `ensure_own_profile()` — member-only self-provisioning linked through `auth.user_id()`        | **New for Neon**              |
+| `00009_add_cycle_activation.sql`                  | `activate_cycle()` — atomic cycle, chit order, installment and obligation generation          | **Applied**                   |
+| `00010_add_cycle_drafts.sql`                      | Draft cycle, manual chit order and atomic draft activation; one draft/active cycle per group  | **Applied**                   |
+| `00011_collection_day_due_dates.sql`              | Use each cycle's saved collection day for both activation paths                               | **Applied**                   |
+| `00012_secure_payment_operations.sql`             | Admin-only transactional payment recording/voiding and own-payment member read policy         | **Applied**                   |
+| `00013_secure_payout_operations.sql`              | Admin-only transactional payout recording/voiding, derived recipient and audit history        | **Applied**                   |
+| `00014_auth_signup_and_role_management.sql`       | Member profile provisioning, audited role/access RPCs, and identity-bound initial-admin setup | **Applied**                   |
+| `00015_add_profiles_to_group.sql`                 | Trusted admin-only RPC `add_profiles_to_group()` linking registered profiles to groups        | **Applied**                   |
+| `00016_recipient_excluded_contribution_logic.sql` | Recipient-excluded contribution model; payout refused while outstanding                       | **Applied**                   |
 
 ## Migration history
 
@@ -68,6 +70,22 @@ identity parameters, requires exactly one matching application profile, refuses 
 application admin, seeds the permanent completion marker when an Admin already exists, and disables
 itself after the first claim. Apply after `00013`; no earlier migration is modified.
 
+`00015` adds `add_profiles_to_group(target_group_id uuid, target_profile_ids uuid[]) returns integer`,
+a trusted admin-only RPC that links existing registered profiles to a Bhishi group in one transaction.
+It requires an active administrator, rejects a missing/archived group, reuses or creates one linked
+`members` row per profile from the profile's current name/email/phone, inserts into `group_members`
+idempotently with `on conflict (group_id, member_id) do nothing`, and appends `group_members_added`
+to the audit log only when at least one membership was actually added. Registered members must still
+exist in `profiles` with `is_active = true`. Apply after `00014`; no earlier migration is modified.
+
+`00016` implements the recipient-excluded contribution model. Both activation paths (`activate_cycle()`
+and `activate_cycle_draft()`) generate installments as before, but the recipient of each installment is
+excluded from that installment's contribution obligations; obligations are created for the other
+participating members only, each for the configured contribution. The installment `expected_amount` is
+set to contribution × (participating members − 1). The `record_payout()` function now also refuses to
+record while required obligations for the installment remain outstanding. Apply after `00015`; no
+earlier migration is modified.
+
 From this point on, these files are append-only. Never edit a migration that has been applied to a
 persistent Neon database; add the next numbered file instead.
 
@@ -75,9 +93,11 @@ persistent Neon database; add the next numbered file instead.
 
 1. The Neon project/branch exists.
 2. The Neon Data API is enabled (this creates `authenticated`, `anonymous` and `auth.user_id()`).
-3. Apply pending migrations `00011`–`00014` in order after reviewing the deployment plan and
+3. Apply pending migrations in order after reviewing the deployment plan and
    confirming the target branch. `00014` includes the one-time setup for the existing initial-admin
-   identity specified by the project owner.
+   identity specified by the project owner. `00015` adds `add_profiles_to_group()` and must be applied
+   after `00014` if this flow is used. `00016` implements the recipient-excluded contribution model and
+   its payout gate; review it before applying to a branch that holds live cycles.
 4. `DATABASE_URL` points at the branch using the **direct** (non-pooled) connection string, and is
    available only to your shell / CI, never to browser code.
 

@@ -15,6 +15,7 @@ interface RecordPayoutDialogProps {
   onOpenChange: (open: boolean) => void
   options: PayoutOption[]
   initialInstallmentId?: string
+  blockedByContributions?: boolean
 }
 
 /** The form only mounts while open, so the amount and fields start fresh. */
@@ -23,12 +24,14 @@ export function RecordPayoutDialog({
   onOpenChange,
   options,
   initialInstallmentId,
+  blockedByContributions,
 }: RecordPayoutDialogProps) {
   if (!open) return null
   return (
     <RecordPayoutForm
       options={options}
       initialInstallmentId={initialInstallmentId}
+      blockedByContributions={blockedByContributions}
       onClose={() => onOpenChange(false)}
     />
   )
@@ -37,10 +40,12 @@ export function RecordPayoutDialog({
 function RecordPayoutForm({
   options,
   initialInstallmentId,
+  blockedByContributions,
   onClose,
 }: {
   options: PayoutOption[]
   initialInstallmentId?: string
+  blockedByContributions?: boolean
   onClose: () => void
 }) {
   const { toast } = useToast()
@@ -144,7 +149,9 @@ function RecordPayoutForm({
     >
       {options.length === 0 ? (
         <p className="rounded-lg bg-muted px-3 py-3 text-sm text-muted-foreground">
-          All generated installments already have a payout recorded.
+          {blockedByContributions
+            ? 'Record all pending contributions before recording the payout.'
+            : 'All generated installments already have a payout recorded.'}
         </p>
       ) : (
         <form id="record-payout-form" className="space-y-4" onSubmit={handleSubmit}>

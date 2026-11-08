@@ -96,7 +96,8 @@ from generate_series(1, 8) as n
 on conflict (cycle_id, member_id) do nothing;
 
 -- ---------------------------------------------------------------------------
--- Installments: 12th of each month, recipient = member holding that chit
+-- Installments: 12th of each month, recipient = member holding that chit.
+-- Expected collection = contribution × contributing members (all but recipient)
 -- ---------------------------------------------------------------------------
 insert into public.installments (
   id, cycle_id, installment_number, scheduled_date,
@@ -108,12 +109,13 @@ select
   n,
   make_date(2026, n, 12),
   ('22222222-2222-4222-8222-00000000000' || n)::uuid,
-  5000.00
+  35000.00
 from generate_series(1, 8) as n
 on conflict (cycle_id, installment_number) do nothing;
 
 -- ---------------------------------------------------------------------------
--- Contribution obligations: one per member per installment (64 rows).
+-- Contribution obligations: the recipient is excluded; the other 7 members pay
+-- ₹5,000 each per installment. 56 rows total.
 -- Deterministic ids derived from installment + chit so re-runs are stable.
 -- ---------------------------------------------------------------------------
 insert into public.contribution_obligations (
@@ -127,39 +129,44 @@ select
 from public.installments i
 join public.cycle_members cm on cm.cycle_id = i.cycle_id
 where i.cycle_id = '44444444-4444-4444-8444-444444444444'
+  and cm.member_id <> i.recipient_member_id
 on conflict (installment_id, member_id) do nothing;
 
 -- ---------------------------------------------------------------------------
--- Sample payments for installment 1 (five full, one partial). Multiple
--- transactions for one member are allowed by design.
+-- Sample payments for installment 1 (all contributing members, one each).
+-- The recipient (member 1) does not contribute in their own payout month.
 -- ---------------------------------------------------------------------------
 insert into public.payments (
   id, installment_id, member_id, amount, payment_date, payment_method, reference_number
 ) values
   ('88888888-8888-4888-8888-000000000001',
    '66666666-6666-4666-8666-000000000001',
-   '22222222-2222-4222-8222-000000000001',
+   '22222222-2222-4222-8222-000000000002',
    5000.00, '2026-01-10', 'upi', 'DEMO-UPI-0001'),
   ('88888888-8888-4888-8888-000000000002',
    '66666666-6666-4666-8666-000000000001',
-   '22222222-2222-4222-8222-000000000002',
+   '22222222-2222-4222-8222-000000000003',
    5000.00, '2026-01-10', 'cash', null),
   ('88888888-8888-4888-8888-000000000003',
    '66666666-6666-4666-8666-000000000001',
-   '22222222-2222-4222-8222-000000000003',
+   '22222222-2222-4222-8222-000000000004',
    5000.00, '2026-01-11', 'bank_transfer', 'DEMO-NEFT-0003'),
   ('88888888-8888-4888-8888-000000000004',
    '66666666-6666-4666-8666-000000000001',
-   '22222222-2222-4222-8222-000000000004',
+   '22222222-2222-4222-8222-000000000005',
    5000.00, '2026-01-11', 'upi', 'DEMO-UPI-0004'),
   ('88888888-8888-4888-8888-000000000005',
    '66666666-6666-4666-8666-000000000001',
-   '22222222-2222-4222-8222-000000000005',
+   '22222222-2222-4222-8222-000000000006',
    5000.00, '2026-01-12', 'upi', 'DEMO-UPI-0005'),
   ('88888888-8888-4888-8888-000000000006',
    '66666666-6666-4666-8666-000000000001',
-   '22222222-2222-4222-8222-000000000006',
-   2500.00, '2026-01-12', 'cash', null)
+   '22222222-2222-4222-8222-000000000007',
+   5000.00, '2026-01-12', 'cash', null),
+  ('88888888-8888-4888-8888-000000000007',
+   '66666666-6666-4666-8666-000000000001',
+   '22222222-2222-4222-8222-000000000008',
+   5000.00, '2026-01-12', 'bank_transfer', 'DEMO-NEFT-0007')
 on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -171,7 +178,7 @@ insert into public.payouts (
   '99999999-9999-4999-8999-999999999999',
   '66666666-6666-4666-8666-000000000001',
   '22222222-2222-4222-8222-000000000001',
-  40000.00,
+  35000.00,
   '2026-01-13',
   'bank_transfer',
   'DEMO-PAYOUT-0001'

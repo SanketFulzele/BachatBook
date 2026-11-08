@@ -224,8 +224,8 @@ export async function updateManagedProfile(input: {
 }): Promise<void> {
   const { error } = await getNeonDataApi().rpc('update_user_access', {
     target_profile_id: input.profileId,
-    requested_role: input.role ?? null,
-    requested_is_active: input.isActive ?? null,
+    requested_role: input.role ?? undefined,
+    requested_is_active: input.isActive ?? undefined,
   })
 
   if (error) throw new Error(normalizeDataApiError(error).message)

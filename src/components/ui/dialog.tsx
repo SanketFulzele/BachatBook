@@ -33,18 +33,25 @@ export function Dialog({
   const titleId = useId()
   const descriptionId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
+  // Keep the latest callback in a ref so inline handlers don't re-run the
+  // effect (and re-steal focus) on every parent render.
+  const onOpenChangeRef = useRef(onOpenChange)
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange
+  })
 
   useEffect(() => {
     if (!open) return
 
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    panelRef.current?.focus()
+    // Don't pull focus away from a child that already autofocused.
+    if (!panelRef.current?.contains(document.activeElement)) panelRef.current?.focus()
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onOpenChange(false)
+        onOpenChangeRef.current(false)
       }
     }
 
@@ -53,7 +60,7 @@ export function Dialog({
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [open, onOpenChange])
+  }, [open])
 
   if (!open) return null
 

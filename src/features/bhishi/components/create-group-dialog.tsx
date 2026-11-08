@@ -97,6 +97,7 @@ function CreateGroupForm({ onClose }: { onClose: () => void }) {
           <Input
             id="group-name"
             className="h-11"
+            autoFocus
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Family Bhishi"

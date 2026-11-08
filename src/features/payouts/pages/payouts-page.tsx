@@ -21,6 +21,19 @@ export function PayoutsPage() {
   const [payoutToVoid, setPayoutToVoid] = useState<PayoutRow | null>(null)
 
   const options = useMemo(() => (query.data ? payoutOptions(query.data) : []), [query.data])
+  const blockedByContributions = useMemo(
+    () =>
+      Boolean(
+        query.data?.installments.some(
+          (entry) =>
+            !entry.payout &&
+            entry.recipient &&
+            entry.expectedTotal > 0 &&
+            entry.collectedAmount < entry.expectedTotal,
+        ),
+      ),
+    [query.data?.installments],
+  )
 
   if (query.isPending) return <PageLoading />
   if (query.isError) {
@@ -186,6 +199,7 @@ export function PayoutsPage() {
         onOpenChange={setPayoutOpen}
         options={options}
         initialInstallmentId={initialInstallmentId}
+        blockedByContributions={blockedByContributions}
       />
       <VoidPayoutDialog
         payout={payoutToVoid}

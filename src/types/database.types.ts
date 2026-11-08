@@ -261,6 +261,35 @@ export type Database = {
           },
         ]
       }
+      initial_admin_setup: {
+        Row: {
+          auth_user_id: string
+          claimed_at: string
+          profile_id: string
+          singleton: boolean
+        }
+        Insert: {
+          auth_user_id: string
+          claimed_at?: string
+          profile_id: string
+          singleton?: boolean
+        }
+        Update: {
+          auth_user_id?: string
+          claimed_at?: string
+          profile_id?: string
+          singleton?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'initial_admin_setup_profile_id_fkey'
+            columns: ['profile_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       installments: {
         Row: {
           created_at: string
@@ -543,27 +572,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      record_payment: {
-        Args: {
-          payment_amount: number
-          payment_notes?: string | null
-          payment_reference?: string | null
-          target_obligation_id: string
-          target_payment_date: string
-          target_payment_method: Database['public']['Enums']['payment_method']
-        }
-        Returns: string
-      }
-      record_payout: {
-        Args: {
-          payout_amount: number
-          payout_notes?: string | null
-          target_installment_id: string
-          target_payment_method: Database['public']['Enums']['payment_method']
-          target_payout_date: string
-        }
-        Returns: string
-      }
       activate_cycle: {
         Args: {
           chit_order: Json
@@ -577,6 +585,10 @@ export type Database = {
         Args: { target_cycle_id: string }
         Returns: string
       }
+      add_profiles_to_group: {
+        Args: { target_group_id: string; target_profile_ids: string[] }
+        Returns: number
+      }
       can_access_cycle: { Args: { target_cycle_id: string }; Returns: boolean }
       can_access_group: { Args: { target_group_id: string }; Returns: boolean }
       can_access_installment: {
@@ -587,6 +599,7 @@ export type Database = {
         Args: { target_member_id: string }
         Returns: boolean
       }
+      claim_initial_admin: { Args: never; Returns: string }
       create_cycle_draft: {
         Args: {
           collection_day: number
@@ -598,6 +611,14 @@ export type Database = {
         Returns: string
       }
       current_profile_id: { Args: never; Returns: string }
+      cycle_installment_due_date: {
+        Args: {
+          cycle_collection_day: number
+          cycle_start: string
+          installment_number: number
+        }
+        Returns: string
+      }
       ensure_own_profile: {
         Args: {
           profile_email?: string
@@ -608,18 +629,38 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_group_member: { Args: { target_group_id: string }; Returns: boolean }
-      claim_initial_admin: { Args: never; Returns: string }
-      update_user_access: {
+      record_payment: {
         Args: {
-          requested_is_active?: boolean | null
-          requested_role?: Database['public']['Enums']['user_role'] | null
-          target_profile_id: string
+          payment_amount: number
+          payment_notes?: string
+          payment_reference?: string
+          target_obligation_id: string
+          target_payment_date: string
+          target_payment_method: Database['public']['Enums']['payment_method']
         }
-        Returns: Json
+        Returns: string
+      }
+      record_payout: {
+        Args: {
+          payout_amount: number
+          payout_notes?: string
+          target_installment_id: string
+          target_payment_method: Database['public']['Enums']['payment_method']
+          target_payout_date: string
+        }
+        Returns: string
       }
       set_cycle_chit_order: {
         Args: { chit_order: Json; target_cycle_id: string }
         Returns: undefined
+      }
+      update_user_access: {
+        Args: {
+          requested_is_active?: boolean
+          requested_role?: Database['public']['Enums']['user_role']
+          target_profile_id: string
+        }
+        Returns: Json
       }
       void_payment: {
         Args: { target_payment_id: string; void_reason: string }

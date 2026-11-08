@@ -4,8 +4,162 @@
 > Update it at the end of every sprint. Never delete previous sprint history, never mark unfinished work
 > as done, and never record secret values.
 
-Last updated: **2026-11-04 (authentication/signup and role-management implemented locally; migration
-00014 and hosted account verification remain pending)**
+Last updated: **2026-11-08 (migrations 00011–00016 applied to hosted Neon; signup/role-management,
+add-registered-members and recipient-excluded contribution behaviour verified against the hosted
+database; real hosted sign-in and Vercel deployment remain pending)**
+
+### Recent update — Recipient-excluded contribution model (2026-11-08)
+
+- Applied new migration `00016_recipient_excluded_contribution_logic.sql` to the hosted Neon branch.
+  It replaces both cycle-activation functions (`activate_cycle()` and `activate_cycle_draft()`) so each
+  installment recipient is excluded from that installment's contribution obligations; obligations are
+  generated for the other participating members only, each for the configured contribution amount.
+  Installments now carry `contribution_amount × (participating members − 1)` as `expected_amount`.
+- `record_payout()` was rebuilt to refuse to record a payout while any required obligation for the
+  installment remains outstanding: it computes expected and collected totals from obligations and
+  non-voided payments under row locks, writes both into the payout audit row, and raises `23514` if a
+  shortfall exists. The admin still explicitly enters the payout date, amount and method.
+- Hosted behavioural verification (rollback-only, 38 checks): legacy and draft activation paths both
+  regenerate installments; recipients never get obligations for their own installment; three-member
+  and five-member groups match B/C contributor pattern (₹10,000 each, ₹20,000 for 3 members and
+  ₹40,000 for 5 members per installment); payout is refused with outstanding contributions, allowed
+  only after all contributors pay; payout records the acting admin from the JWT and writes one audit
+  row; the verification transaction was rolled back and hosted data is unchanged (zero groups, zero
+  members, zero audit rows).
+- The frontend installment cards now show the recipient as "Recipient — does not contribute this
+  cycle", the payout dialog/page refuses to offer payout until all contributors are paid (record
+  payments first), and the full build/typecheck/lint/format checks pass. Browser walkthrough still
+  requires hosted credentials.
+- Historical cycles: none exist on the hosted branch (zero groups). If a pending production cycle ever
+  needs this model before activation, it must be recalculated through a reviewed decision — not by an
+  automatic migration.
+
+### Recent update — Add registered members to groups (2026-11-08)
+
+- Implemented the new Add-Member flow: the manual name/phone/email entry form is replaced by a
+  searchable list of registered Bachat Book users. Admins search by name or email, select one or
+  more eligible users (multi-select chips), and click "Add Selected Members".
+- The dialog filters client-side from the live snapshot: it shows only `is_active` profiles that are
+  not already members of the currently selected group. Users matched by search are displayed with
+  full name, email and an avatar (initials fallback).
+- Added migration `00015_add_profiles_to_group.sql` with the trusted, transactional RPC
+  `add_profiles_to_group(target_group_id uuid, target_profile_ids uuid[]) returns integer`. It:
+  requires an active administrator derived from the JWT, rejects a missing/archived target group,
+  resolves the target profiles, creates or reuses one `members` row linked through `profile_id`
+  from the profile's current `full_name`, `email`, `phone`, inserts `group_members` idempotently
+  (`on conflict (group_id, member_id) do nothing`), locks profiles early in the transaction, and
+  appends a `group_members_added` audit row only when at least one membership was added.
+- **Applied to hosted Neon on 2026-11-08** and verified there: 32 rollback-only checks passed —
+  two registered members added in one call, exactly two linked member rows and two `active`
+  memberships created, idempotent repeat call added nothing, an inactive profile was refused,
+  a member-role caller was rejected, an already-linked member row was reused (not duplicated),
+  a missing group and an archived group were rejected, and source checks confirmed the advisory
+  lock, the `is_admin()` guard, the audit action and idempotent insert. The transaction was rolled
+  back; hosted still holds exactly one profile, zero groups, zero members and zero audit rows.
+- Regenerated `src/types/database.types.ts` from the migrated hosted schema (includes
+  `add_profiles_to_group`). Frontend wrappers pass the new RPC and refresh the snapshot on success,
+  so the group's member list updates after addition. Typecheck, lint, production build and the
+  Prettier format check all pass.
+- **Not run:** browser-level add-member walkthrough against the hosted project (requires hosted
+  credentials — see the 2026-11-08 hosted verification record). No fake financial data was created.
+- Existing signup/login, Admin/Member role guards, role management and financial/installment/payout
+  behaviour were not changed. The older manual "add member by free-form name" entry path is no
+  longer offered by the dialog; existing members without a profile link are unchanged in the
+  database.
+
+### Recent update — Hosted migration of 00011–00014 and hosted verification (2026-11-08)
+
+- Applied migrations `00011_collection_day_due_dates.sql`, `00012_secure_payment_operations.sql`,
+  `00013_secure_payout_operations.sql` and `00014_auth_signup_and_role_management.sql` to the hosted
+  Neon branch in numeric order via a direct SQL connection. Every migration reports success; the
+  hosted branch is now at `00014`.
+- Verified the hosted admin account against the database: the single profile
+  `518d403a-a5eb-4f7d-afbb-a600f8923afa` is linked to Auth id `25c8d456-…99c` (email
+  `sanketfulzelek6@gmail.com`), holds application role `admin` and `is_active = true`. `00014` seeded
+  `initial_admin_setup` with this exact pairing during the migration, so the one-time claim RPC is
+  now permanently disabled — the intended end state for the owner's pre-existing admin.
+- 18 structural post-apply checks passed against hosted: all ten workflow functions exist and are
+  executable by `authenticated` only; no client write privilege on `payments`/`payouts`;
+  `profiles` table-level write is `INSERT` (self-provisioning) with an `UPDATE` grant limited to
+  columns `full_name, phone`; no DELETE policies anywhere; no client privilege on
+  `initial_admin_setup`; the setup marker binds the existing Sanket profile.
+- 90 behavioural checks passed inside a single rollback-only hosted transaction. Identity was provided
+  through the real deployed path (the `request.jwt.claims` GUC consumed by `auth.user_id()`), the same
+  mechanism the Neon Data API uses; no deployed function, policy or grant was modified. Verified:
+  signup provisioning creates a member-role profile, is idempotent, refuses blank names, missing
+  emails, sessions and any email already owned by a different Auth identity (including the owner's);
+  `update_user_access` requires an active-admin caller, blocks self-changes, demotes/promotes and
+  deactivates/activates other profiles atomically, appends exactly one audit row per applied change
+  (with correct actor, target and old/new values), and writes nothing for rejected or no-op requests;
+  a member caller is rejected and cannot see or change other profiles (RLS); ordinary profile updates
+  cannot change `role`, `is_active` or `auth_user_id` (column grant + trigger guard); profiles inserts
+  and deletes are refused; audit rows cannot be read by members, forged, updated or deleted;
+  `claim_initial_admin` rejects strangers and the already-completed owner claim; the deployed source
+  contains the advisory-lock serialization and last-admin guard.
+- Regenerated `src/types/database.types.ts` from the migrated hosted schema; all new functions and
+  tables (including `update_user_access`, `claim_initial_admin`, the payment/payout RPCs and the
+  collection-day due-date helper) are present. Two frontend RPC wrappers were adjusted for the new
+  optional-argument typings (passing `undefined` instead of `null`).
+- `npm run typecheck` (0 errors), `npm run lint` (0 errors/warnings), `npm run production build` and
+  Prettier format checks all passed.
+- Still pending: a real hosted sign-in walkthrough with the owner password and a fresh member account
+  (browser session/RLS/redirect verification), the Vercel SPA-rewrite deployment, and production
+  environment variables. Verification inserted no data: the hosted database still contains exactly
+  one profile, zero groups, zero members and zero audit rows outside the test transaction.
+
+#### How the hosted checks were executed (for future sessions)
+
+- Tooling: a temporary Node script using the `pg` client in
+  `C:\Users\sanke\AppData\Local\Temp\opencode\bhishi-migrate\` (outside the repository). `psql` is not
+  installed in this environment. Migrations were applied one file at a time in numeric order, stopping on
+  the first error. `DATABASE_URL` was read from `.env` and never printed, echoed or written to a doc.
+- Identity simulation: because a direct connection carries no Neon Data API JWT, each behavioural check
+  ran in one transaction that was rolled back and did:
+  1. `set local role authenticated;`
+  2. `select set_config('request.jwt.claims', '{"sub":"<auth-id>"}', true);` — the GUC **name must be an
+     inline SQL literal**; passing it as a bound parameter does not trigger the Data API's
+     `pg_session_jwt` hook.
+  3. one owner-context `select auth.user_id();` call to prime the identity cache.
+- Important: the real path is `request.jwt.claims` (JSON), **not** the older
+  `request.jwt.claim.sub`. `auth.user_id()` reads the former on the hosted Data API. Using the older
+  GUC name silently yields `NULL`.
+- All checks were rollback-only and left the hosted database untouched. Post-rollback counts were
+  re-checked (profiles 1 → 1, audit rows 0 → 0, no test identities, one setup-marker row).
+- `neon_auth.users` is **not readable** through a direct `pg` connection
+  (`relation "neon_auth.users" does not exist` for this role). Identity verification therefore relied on
+  `profiles.auth_user_id`, which is the application's mapping. Do not modify the `neon_auth` schema.
+
+#### Blocked / not verified at the end of this session
+
+- No hosted credentials/password are available, so there was no real browser sign-in as the owner and no
+  real member signup/login. Browser signup, login, the User Management screen, password reset, session
+  persistence, expiry handling and the mobile walkthrough remain **not run**.
+- No Vercel CLI/token/deployment access. `vercel.json` (SPA rewrite) is committed locally but not
+  deployed; direct routes still return 404 at <https://bachat-book-circle.vercel.app>. Production
+  `VITE_NEON_AUTH_URL` / `VITE_NEON_DATA_API_URL` / `VITE_APP_ENV` and the Neon Auth production
+  origin/reset URL are unverified.
+- Deployment could not be exercised at all: it requires a commit plus the Vercel project and dashboard
+  access. Nothing in this session was committed or pushed.
+
+#### Working tree at the end of this session
+
+Eight files are modified and **uncommitted** (HEAD `7d2b3c0`):
+
+```text
+README.md
+docs/AUTHENTICATION.md
+docs/DATABASE_ARCHITECTURE.md
+docs/DEPLOYMENT.md
+docs/PROJECT_STATUS.md
+src/features/auth/api/auth-api.ts
+src/features/bhishi/api/bhishi-api.ts
+src/types/database.types.ts
+db/migrations/README.md   # migration status table refreshed in this documentation pass
+```
+
+`src/types/database.types.ts` was regenerated from the migrated hosted schema; the two API files only
+change optional RPC arguments from `null` to `undefined` to match the regenerated typings. No database
+row, policy, grant or function was changed during verification.
 
 ### Recent update — Signup, initial admin and user management (2026-11-04)
 
@@ -18,11 +172,14 @@ Last updated: **2026-11-04 (authentication/signup and role-management implemente
   PostgreSQL RPC that checks the caller role, blocks self/last-admin changes, and writes audit history.
 - Added admin Members and member Installments navigation pages; filled out the requested role-specific
   navigation labels.
-- Added append-only migration `00014_auth_signup_and_role_management.sql`; it is **local only** and
-  has not been applied to hosted Neon. Migrations `00011`–`00014` remain pending deployment.
+- Added append-only migration `00014_auth_signup_and_role_management.sql`; at the time it was local
+  only. _(Superseded 2026-11-08: `00011`–`00016` are applied to hosted Neon and verified there — see the
+  top sections.)_
 - The complete profile UUID, role assignment and Auth-to-profile link for the existing admin were not
-  queried or verified because this workspace has no hosted database connection/client. Two-account
-  auth/RLS tests and production deployment are also pending. Do not treat the feature as hosted-ready.
+  queried or verified at the time because this workspace had no hosted database connection. _(Superseded
+  2026-11-08: profile `518d403a-a5eb-4f7d-afbb-a600f8923afa` ↔ Auth `25c8d456-7a44-4cdf-b986-cb8c0798c99c`,
+  role `admin`, `is_active = true`; database-level RPC behaviour verified. Browser two-account tests and
+  production deployment are still pending.)_
 
 ### Recent update — Favicon and shared brand logo (2026-11-04)
 
@@ -40,23 +197,23 @@ Last updated: **2026-11-04 (authentication/signup and role-management implemente
 
 ## A. Project Information
 
-| Item                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Project name        | **Bachat Book**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Tagline             | Together We Save. Simply.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Purpose             | Digital Bhishi / rotating savings group management for small groups (5–10 members): contributions, cycles, collections, payouts and financial history.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Repository          | `D:\Sanket\GitSanket\BachatBook`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Current sprint      | **Sprint 11 — Production Deployment & Launch** (Vercel target selected; SPA fix prepared locally; release deployment and production checks blocked)                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Overall status      | Sprints 1–2.7 delivered the UI, verified schema, Neon migration and hosted database. Existing auth/session flows remain implemented; public signup, member provisioning, initial-admin setup and admin role management are implemented locally with migration 00014. Migrations 00011–00014, hosted auth/RLS tests and the real admin profile UUID/link remain unverified. The selected Vercel URL serves the app root but direct routes return 404; a rewrite fix is local only. This environment has no Vercel CLI/token or PostgreSQL client/connection, so hosted migration, account verification and deployment are blocked. |
-| Sprint 1 scope rule | UI, layout, routing and documentation only. No database, auth, CRUD or financial logic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Sprint 2 scope rule | Database schema, migrations, constraints, indexes, RLS, seed data, types and documentation only. No auth wiring, CRUD, generation or calculations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Sprint 2.5 rule     | Replace Supabase with Neon, adapt identity/RLS and regenerate types. No new features, no Sprint 3 auth work, no remote provisioning without approval.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Sprint 2.6 rule     | Cosmetic rebrand only. No schema, policy, logic or behaviour changes; SQL baselines untouched.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Sprint 2.7 rule     | Provision the hosted Neon project (Auth + Data API), apply migrations, confirm RLS. No application auth wiring, no CRUD, no SQL changes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Sprint 3 rule       | Real Neon Auth authentication, session state, profile loading, role guards, onboarding and password reset only. No CRUD, no financial features, no RLS bypass, no client-trusted roles.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Sprint 4 rule       | One small, mobile-first Bhishi workflow only. No reports, charts, exports, extra settings or advanced filters. No hard delete of financial records, no client-trusted roles, no DB credentials in the browser.                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Sprint 5 rule       | Cycle drafts, manual chit ordering, confirmation activation and schedule viewing only. No automatic installment generation beyond the existing activation behaviour, no payment/payout recording changes, no reports, analytics, notifications or calendars.                                                                                                                                                                                                                                                                                                                                                                      |
-| Sprint 6 rule       | Automatic monthly installment generation at cycle activation plus admin/member installment viewing and payment-derived status only. No payment/payout recording changes, reports, analytics, notifications, late fees, penalties or manual installment editing.                                                                                                                                                                                                                                                                                                                                                                   |
+| Item                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project name        | **Bachat Book**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Tagline             | Together We Save. Simply.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Purpose             | Digital Bhishi / rotating savings group management for small groups (5–10 members): contributions, cycles, collections, payouts and financial history.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Repository          | `D:\Sanket\GitSanket\BachatBook`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Current sprint      | **Sprint 11 — Production Deployment & Launch** (Vercel target selected; SPA fix prepared locally; release deployment and production checks blocked) and **Sprint 12 — Public Signup & Role Management** (implemented; database behaviour verified on hosted Neon; browser walkthrough pending)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Overall status      | Sprints 1–2.7 delivered the UI, verified schema, Neon migration and hosted database. Sprint 12 added public signup, member-only profile provisioning, the identity-bound one-time initial-admin flow and audited admin role management; Sprint 12.5 linked registered profiles to groups through a trusted RPC; Sprint 12.6 implemented recipient-excluded contributions and the outstanding-contribution payout gate. Migrations `00001`–`00016` are applied to the hosted production branch; `00011`–`00016` were applied and verified there on 2026-11-08 with 18 structural + 90 behavioral + 32 + 38 rollback-only checks, and `database.types.ts` was regenerated from that schema. The real owner profile ↔ Auth link and `admin` role are confirmed in the hosted database, and migration `00014` seeded the setup marker, so the one-time claim flow is permanently disabled by design. Still unverified: a real browser sign-in/signup/role-management/add-member walkthrough, authenticated RLS through the running app, password-reset email delivery, production Vercel environment variables, and the deployed SPA rewrite (the selected URL serves the app root but direct routes still return 404). No Vercel CLI/token is available in this environment and no production deployment has been performed. |
+| Sprint 1 scope rule | UI, layout, routing and documentation only. No database, auth, CRUD or financial logic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Sprint 2 scope rule | Database schema, migrations, constraints, indexes, RLS, seed data, types and documentation only. No auth wiring, CRUD, generation or calculations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Sprint 2.5 rule     | Replace Supabase with Neon, adapt identity/RLS and regenerate types. No new features, no Sprint 3 auth work, no remote provisioning without approval.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Sprint 2.6 rule     | Cosmetic rebrand only. No schema, policy, logic or behaviour changes; SQL baselines untouched.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Sprint 2.7 rule     | Provision the hosted Neon project (Auth + Data API), apply migrations, confirm RLS. No application auth wiring, no CRUD, no SQL changes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Sprint 3 rule       | Real Neon Auth authentication, session state, profile loading, role guards, onboarding and password reset only. No CRUD, no financial features, no RLS bypass, no client-trusted roles.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Sprint 4 rule       | One small, mobile-first Bhishi workflow only. No reports, charts, exports, extra settings or advanced filters. No hard delete of financial records, no client-trusted roles, no DB credentials in the browser.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Sprint 5 rule       | Cycle drafts, manual chit ordering, confirmation activation and schedule viewing only. No automatic installment generation beyond the existing activation behaviour, no payment/payout recording changes, no reports, analytics, notifications or calendars.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Sprint 6 rule       | Automatic monthly installment generation at cycle activation plus admin/member installment viewing and payment-derived status only. No payment/payout recording changes, reports, analytics, notifications, late fees, penalties or manual installment editing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### Technology stack (installed)
 
@@ -80,29 +237,31 @@ Last updated: **2026-11-04 (authentication/signup and role-management implemente
 
 ## B. Sprint Progress
 
-| #   | Sprint                                     | Status                    | Notes                                                                                                                                                                                                                                       |
-| --- | ------------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Project Foundation & Design System         | **Completed**             | UI, layouts, routing, auth screens, dashboard preview, docs.                                                                                                                                                                                |
-| 2   | Supabase & Database Architecture           | **Completed**             | Historical baseline: schema, 7 migrations, RLS, seed, types, docs. Verified locally; never pushed to Supabase.                                                                                                                              |
-| 2.5 | Supabase → Neon migration                  | **Completed**             | Neon baseline migrations, `auth.user_id()` identity mapping, RLS adaptation, types, `neon.ts`, docs. Verified locally at the time; hosted provisioning completed in 2.7.                                                                    |
-| 2.6 | Rebrand: Bachify → Bachat Book             | **Completed**             | Name, package, icon asset, UI copy, PWA manifest. SQL untouched by design.                                                                                                                                                                  |
-| 2.7 | Hosted Neon provisioning                   | **Completed**             | `BachatBook` project, Auth + Data API enabled, 8 migrations applied, RLS and `auth.user_id()` verified on the production branch.                                                                                                            |
-| 3   | Authentication & Security                  | **In Progress**           | Real sessions, guards, onboarding, password reset implemented; authenticated hosted verification pending.                                                                                                                                   |
-| 4   | Simple Bhishi Workflow                     | **Implemented**           | Groups, members, chit order, installments, payments, payouts, live dashboards and profile.                                                                                                                                                  |
-| 5   | Bhishi Cycle & Chit Order                  | **Implemented**           | Draft cycle creation with snapshots, manual chit ordering, confirmation activation and schedule viewing.                                                                                                                                    |
-| —   | Cycle & Chit Management                    | Delivered                 | Basic activation shipped in Sprint 4; the reviewable draft/chit-order workflow ships in Sprint 5.                                                                                                                                           |
-| —   | Automatic Installment Generation           | Delivered                 | Verified in Sprint 6; generated atomically by `activate_cycle_draft()` from cycle snapshots.                                                                                                                                                |
-| —   | Payment Management                         | Merged                    | Folded into Sprint 4; status derived from non-voided payments.                                                                                                                                                                              |
-| —   | Payout Management                          | Merged                    | Foundation folded into Sprint 4; Sprint 8 adds trusted recording, voiding, history and member views. Migration 00013 is pending deployment.                                                                                                 |
-| —   | Dashboards                                 | Merged                    | Folded into Sprint 4; admin and member homes read live data.                                                                                                                                                                                |
-| —   | Reports & Audit Logs                       | Dropped                   | Deliberately out of scope; the app is kept small.                                                                                                                                                                                           |
-| 6   | Automatic Installment Generation           | **In Progress**           | Generation and saved collection-day due dates are implemented; migration 00011 and PostgreSQL validation remain pending.                                                                                                                    |
-| 7   | Simple Payment Recording & Tracking        | **In Progress**           | Recording/void RPCs and admin/member history implemented; migration 00012 and database/mobile verification pending.                                                                                                                         |
-| 8   | Simple Payout Recording & Tracking         | **In Progress**           | Admin confirmation, payout history/voiding and member schedule views implemented; migration 00013 plus migrations 00011–00012 and PostgreSQL/RLS validation remain pending.                                                                 |
-| 9   | Simple Dashboard & Mobile Navigation       | **Implemented**           | Minimal admin/member dashboards, multi-group selectors, consistent bottom navigation, admin More menu and Installments route. No database changes.                                                                                          |
-| 10  | Final Testing, Security Checks & Bug Fixes | **In Progress**           | Local typecheck/lint/build/format, static security review and unauthenticated responsive smoke checks passed. Hosted database/RLS and authenticated workflows remain unverified.                                                            |
-| 11  | Production Deployment & Launch             | **In Progress / Blocked** | Vercel and production URL selected; direct route refresh currently fails. Added local SPA rewrite and deployment guide. No Vercel CLI/token or database access is configured here; migrations and authenticated smoke tests remain pending. |
-| 12  | Public Signup & Role Management            | **Implemented locally**   | Neon Better Auth signup, member-only profile provisioning, identity-bound initial-admin flow, admin access RPC/UI and navigation added. Migration 00014, hosted profile linking and two-account/RLS tests are pending.                      |
+| #    | Sprint                                     | Status                       | Notes                                                                                                                                                                                                                                                                                                   |
+| ---- | ------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Project Foundation & Design System         | **Completed**                | UI, layouts, routing, auth screens, dashboard preview, docs.                                                                                                                                                                                                                                            |
+| 2    | Supabase & Database Architecture           | **Completed**                | Historical baseline: schema, 7 migrations, RLS, seed, types, docs. Verified locally; never pushed to Supabase.                                                                                                                                                                                          |
+| 2.5  | Supabase → Neon migration                  | **Completed**                | Neon baseline migrations, `auth.user_id()` identity mapping, RLS adaptation, types, `neon.ts`, docs. Verified locally at the time; hosted provisioning completed in 2.7.                                                                                                                                |
+| 2.6  | Rebrand: Bachify → Bachat Book             | **Completed**                | Name, package, icon asset, UI copy, PWA manifest. SQL untouched by design.                                                                                                                                                                                                                              |
+| 2.7  | Hosted Neon provisioning                   | **Completed**                | `BachatBook` project, Auth + Data API enabled, 8 migrations applied, RLS and `auth.user_id()` verified on the production branch.                                                                                                                                                                        |
+| 3    | Authentication & Security                  | **In Progress**              | Real sessions, guards, onboarding, password reset implemented; authenticated hosted verification pending.                                                                                                                                                                                               |
+| 4    | Simple Bhishi Workflow                     | **Implemented**              | Groups, members, chit order, installments, payments, payouts, live dashboards and profile.                                                                                                                                                                                                              |
+| 5    | Bhishi Cycle & Chit Order                  | **Implemented**              | Draft cycle creation with snapshots, manual chit ordering, confirmation activation and schedule viewing.                                                                                                                                                                                                |
+| —    | Cycle & Chit Management                    | Delivered                    | Basic activation shipped in Sprint 4; the reviewable draft/chit-order workflow ships in Sprint 5.                                                                                                                                                                                                       |
+| —    | Automatic Installment Generation           | Delivered                    | Verified in Sprint 6; generated atomically by `activate_cycle_draft()` from cycle snapshots.                                                                                                                                                                                                            |
+| —    | Payment Management                         | Merged                       | Folded into Sprint 4; status derived from non-voided payments.                                                                                                                                                                                                                                          |
+| —    | Payout Management                          | Merged                       | Foundation folded into Sprint 4; Sprint 8 adds trusted recording, voiding, history and member views. Migration 00013 is applied to hosted (2026-11-08).                                                                                                                                                 |
+| —    | Dashboards                                 | Merged                       | Folded into Sprint 4; admin and member homes read live data.                                                                                                                                                                                                                                            |
+| —    | Reports & Audit Logs                       | Dropped                      | Deliberately out of scope; the app is kept small.                                                                                                                                                                                                                                                       |
+| 6    | Automatic Installment Generation           | **Implemented**              | Generation and saved collection-day due dates are implemented; migration 00011 is applied to hosted and its date logic was exercised in rollback-only hosted checks. Browser-level authenticated verification pending.                                                                                  |
+| 7    | Simple Payment Recording & Tracking        | **Implemented**              | Recording/void RPCs and admin/member history implemented; migration 00012 is applied to hosted. Browser-level authenticated verification pending.                                                                                                                                                       |
+| 8    | Simple Payout Recording & Tracking         | **Implemented**              | Admin confirmation, payout history/voiding and member schedule views implemented; migration 00013 is applied to hosted. Browser-level authenticated verification pending.                                                                                                                               |
+| 9    | Simple Dashboard & Mobile Navigation       | **Implemented**              | Minimal admin/member dashboards, multi-group selectors, consistent bottom navigation, admin More menu and Installments route. No database changes.                                                                                                                                                      |
+| 10   | Final Testing, Security Checks & Bug Fixes | **In Progress**              | Local typecheck/lint/build/format, static security review and unauthenticated responsive smoke checks passed. Hosted schema/RPC behaviour verified 2026-11-08; authenticated browser workflows and password-reset email remain unverified.                                                              |
+| 11   | Production Deployment & Launch             | **In Progress / Blocked**    | Vercel and production URL selected; direct route refresh currently fails. Added local SPA rewrite and deployment guide. No Vercel CLI/token or deployment access is configured here; authenticated smoke tests remain pending.                                                                          |
+| 12   | Public Signup & Role Management            | **Implemented; DB verified** | Neon Better Auth signup, member-only profile provisioning, identity-bound initial-admin flow, admin access RPC/UI and navigation added. Migration 00014 is applied to hosted and its database behaviour verified there; browser two-account/RLS tests pending.                                          |
+| 12.5 | Add Registered Members to Groups           | **Implemented; DB verified** | Search-and-select Add Member dialog for registered users, multi-select chips, trusted admin RPC `add_profiles_to_group()` with idempotent membership insertion and audit. Migration 00015 applied to hosted and verified there (32 rollback-only checks). Browser-level add-member walkthrough pending. |
+| 12.6 | Recipient-excluded Contribution Logic      | **Implemented; DB verified** | Recipient excluded from their own installment's obligations; payout refused while outstanding. Migration 00016 applied to hosted and verified there (38 rollback-only checks). Browser-level walkthrough pending.                                                                                       |
 
 Legend: Not Started · In Progress · Completed · Blocked · Merged · Dropped.
 
@@ -741,7 +900,8 @@ Everything below is intentionally **not** implemented, or is implemented but not
 
 - **Authenticated hosted verification:** successful Neon Auth sign-in, session persistence across reloads,
   profile loading, `ensure_own_profile()` success, role-based dashboard routing, hosted JWT forwarding and
-  authenticated Data API/RLS evaluation. These need a provisioned test account.
+  authenticated Data API/RLS evaluation. These need a provisioned test account. Migrations `00011`–`00016`
+  and the signup/role-management database behaviour are already verified on hosted (2026-11-08).
 - **Hosted end-to-end Bhishi flow:** creating a group, adding members, creating and activating a cycle
   draft, reordering the chit order, recording a payment/payout, and reading the generated installment
   schedule back as an admin and a linked member have not been exercised against the hosted project.
@@ -750,12 +910,18 @@ Everything below is intentionally **not** implemented, or is implemented but not
 - **Cycle and installment verification scope:** the RPCs and generation rules were verified with SQL
   assertions inside a rollback-only hosted transaction using mocked identity helpers. Real authenticated
   invocation and installment viewing through the Data API remain unverified.
-- **Admin provisioning:** the dummy `aashish@bachatbook.app` account is not confirmed linked to
-  `public.profiles`; create/link it through the trusted direct-SQL procedure.
+- **Admin provisioning:** the real owner is already provisioned and verified — profile
+  `518d403a-a5eb-4f7d-afbb-a600f8923afa` ↔ Auth `25c8d456-7a44-4cdf-b986-cb8c0798c99c`, role `admin`,
+  `is_active = true`, with the one-time setup marker seeded. Do not create or link another administrator
+  account. The old dummy `aashish@bachatbook.app` note is historical only.
 - **Member login linking:** the admin “Link login” action exists, but no real member profile has been linked
   and used to sign in.
-- **Password-reset email delivery:** the request/reset calls are wired and invalid-token handling was
-  verified, but no reset email has been delivered or consumed end-to-end.
+- **Production deployment:** the release is uncommitted and undeployed. Vercel production environment
+  variables, the production Neon Auth origin/reset URL and the deployed SPA rewrite are unverified; direct
+  routes still return 404. No Vercel CLI/token is available here.
+- **Neon Auth user inspection:** `neon_auth.users` cannot be read through the direct `pg` role used here
+  (`relation "neon_auth.users" does not exist`). Identity checks rely on `profiles.auth_user_id`; never
+  modify the managed `neon_auth` schema.
 - **Edit and archive flows:** group details, member details, membership status and member login unlinking
   are not editable from the UI yet (archive/deactivate paths are available in the schema).
 - **Payment correction UI:** the database supports voiding with an actor, time and reason, but no screen
@@ -974,6 +1140,35 @@ Everything below is intentionally **not** implemented, or is implemented but not
 Sprint 6 validation: the due-date migration and UI were reviewed in code. Migration `00011` has not been
 applied to the hosted database; its SQL and due-date behavior remain unverified. Earlier typecheck/lint/build
 results are historical and do not validate the current code.
+
+### Sprint 12 decisions (public signup and role management)
+
+72. **Signup always creates a member.** The public form calls Managed Better Auth only and has no role
+    field. The profile is created by `ensure_own_profile()`, which derives the identity from
+    `auth.user_id()` and hard-codes `role = 'member'`.
+73. **Role changes are a trusted database operation.** `update_user_access()` verifies an active-admin
+    caller, rejects self-changes, locks competing changes, protects the last active admin and appends one
+    audit row per applied change. The browser never supplies the actor or trusts its own role.
+74. **Only two application roles.** The `user_role` enum remains `admin` / `member`; deactivation is
+    modelled with `profiles.is_active`, not a third role. No hard deletes were added.
+75. **One-time initial-admin claim is identity-bound.** `claim_initial_admin()` takes no identity/email
+    parameters and is bound in SQL to the owner's exact Neon Auth subject and existing profile email,
+    preserving the profile UUID. The UI comparison is presentation only; the database gates the claim.
+76. **The setup marker is seeded when an admin already exists.** Migration `00014` inserts the permanent
+    `initial_admin_setup` marker if an application admin is present, so the flow stays disabled even if
+    that admin is later demoted. This is why the owner needed no manual claim.
+77. **Reuse the existing owner account.** No new Neon Auth user was created and the existing profile UUID
+    was kept; the owner's committed Better Auth account is the admin.
+78. **Append, never edit.** `00014` is a new migration; applied files `00011`–`00013` were not modified.
+    It tightens the `profiles` UPDATE grant to columns `full_name, phone`, keeps the trigger guard, and
+    revokes client inserts into `audit_logs`.
+79. **Verify through the real identity path.** Behavioural checks set `request.jwt.claims` (not the
+    legacy `request.jwt.claim.sub`) inside rollback-only transactions, because that is what the hosted
+    Data API's `auth.user_id()` reads. This avoided both a false pass and any test data in the real
+    database.
+80. **Regenerate types from the migrated hosted schema.** `database.types.ts` now reflects `00014`; the
+    two frontend wrappers pass `undefined` rather than `null` for optional RPC arguments to satisfy the
+    generated signatures.
 
 ### Sprint 7 implementation (2026-11-03)
 
@@ -1327,7 +1522,7 @@ or database behavior.
 
 Planned scope:
 
-1. Confirm production branch identity and recovery options; review migrations `00011`–`00014` and apply
+1. Confirm production branch identity and recovery options; review migrations `00011`–`00016` and apply
    them in order using a trusted database client.
 2. Log in using the existing owner account, complete `/initial-admin-setup`, and verify the returned
    profile UUID, Auth link, active state and role against the actual hosted database.
@@ -1904,3 +2099,68 @@ restored after rollback. **79 assertions passed**, covering:
 
 Current Sprint 6 changes were not revalidated in this session: typecheck, lint, production build,
 PostgreSQL execution of migration `00011`, and mobile-browser checks remain pending.
+
+---
+
+### Add Registered Members to Groups — hosted verification (2026-11-08)
+
+Implementation details: the Add Member dialog was replaced with a searchable multi-select list of
+registered users; the new migration `00015_add_profiles_to_group.sql` provides the trusted,
+transactional admin-only RPC; the frontend calls the RPC through TanStack Query and invalidates the
+Bhishi snapshot. The free-form manual member-entry form is no longer offered.
+
+| Check                                                 | Result                                                                                                               |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `00015_add_profiles_to_group.sql` applied to hosted   | ✅ Completed without error; hosted branch now at `00015`                                                             |
+| RPC exists; granted to `authenticated` only           | ✅ `add_profiles_to_group(uuid, uuid[])`; `EXECUTE` revoked from `PUBLIC`, granted to `authenticated`                |
+| Adding two registered members in one call             | ✅ Two linked member rows (via `profile_id`), two `active` memberships, one call                                     |
+| Idempotency of repeat add                             | ✅ 0 members added, 0 duplicate `group_members`, 0 duplicate `members` rows                                          |
+| Inactive profile is refused                           | ✅ `P0002` “One of the selected accounts is missing or is inactive”                                                  |
+| Member-role caller is refused                         | ✅ `42501` “An active administrator session is required”                                                             |
+| Existing linked member row is reused (not duplicated) | ✅ Profile with a prior `members` row added; exactly one `members` row for the profile                               |
+| Missing group is refused                              | ✅ `P0002` “The target group was not found or is archived”                                                           |
+| Archived group is refused                             | ✅ The same error; the group was restored to draft afterwards                                                        |
+| Empty selection array is refused                      | ✅ `22023` “Select at least one registered member to add”                                                            |
+| Audit row behaviour                                   | ✅ One `group_members_added` audit row only when ≥1 membership is applied; actor derived from JWT                    |
+| Source-level checks                                   | ✅ Advisory lock, `is_admin()` caller guard, audit action and `on conflict (group_id, member_id) do nothing` present |
+| Hosted database left unchanged after verification     | ✅ Rolled back; still one profile, zero groups/members/audit rows                                                    |
+| Static checks (typecheck, lint, build, format:check)  | ✅ Passed                                                                                                            |
+| `database.types.ts` regenerated                       | ✅ Includes `add_profiles_to_group` from the migrated hosted schema                                                  |
+
+#### Not verified (requires hosted credentials)
+
+- Browser walkthrough: search by name and by email, multi-select chips, add two members, reopen the
+  group detail and confirm the members persist, inactive-user absence from results, duplicate
+  requests from the client, member-role access denial on the group pages.
+
+---
+
+### Recipient-excluded contribution model — hosted verification (2026-11-08)
+
+Migration `00016_recipient_excluded_contribution_logic.sql` was applied to the hosted production
+branch via a direct SQL connection, then verified in a single rollback-only transaction that was
+rolled back. Fixture: a three-member group, ₹10,000 monthly contribution, collection day 12, draft
+chit order (A→1, B→2, C→3).
+
+| Check                                                         | Result                                                                                |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `activate_cycle()` (legacy) generates recipient-excluded rows | ✅ Three installments, each `contribution × contributing members` = ₹20,000           |
+| `activate_cycle_draft()` (production path)                    | ✅ Activates and generates the same recipient-excluded model                          |
+| Recipient excluded from their own installment                 | ✅ Installment #1 (A): obligations for B and C only; same for #2 (B) and #3 (C)       |
+| Contribution per obligation                                   | ✅ ₹10,000 each; total expected per installment = ₹20,000                             |
+| Payout while outstanding contributions remain                 | ✅ DB-refused before any payment; after B pays, still refused (outstanding = ₹10,000) |
+| Remaining after exactly one payer                             | ✅ ₹10,000                                                                            |
+| Payout after all required contributors pay                    | ✅ Recorded with recipient from installment, `recorded_by` = acting admin from JWT    |
+| Payout audit row                                              | ✅ Exactly one `payout.recorded` row; includes expected/collected totals              |
+| Payout amount, recipient and status display                   | ✅ Backend enforces the rule; UI shows recipient, outstanding, payout date/status     |
+| Five-member group (N − 1 = 4 contributors)                    | ✅ Five installments, each ₹40,000 expected; four contributors per installment        |
+| Types regenerated from the migrated hosted schema             | ✅ `npm run generate-types`; includes the rebuilt functions                           |
+| Hosted database left unchanged after verification             | ✅ Rolled back; still one profile, zero groups/members/audit rows                     |
+| Static checks (typecheck, lint, build, format:check)          | ✅ Passed                                                                             |
+
+#### Not verified (requires hosted credentials)
+
+- Browser walkthrough: create a group, add registered members, create and activate a cycle, record
+  payments, verify B-pays-first/second flows in the UI, try to record payout before all contributors
+  pay (DB must refuse), confirm payout appears only after full collection, and confirm the payout
+  action is blocked on the UI for any outstanding installment.

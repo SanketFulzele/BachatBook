@@ -343,9 +343,12 @@ Signup users cannot supply the configured Auth id to this RPC. A user-supplied e
 React is not used as authorization. The database verifies the signed Neon Auth identity and gates the
 operation. The completed profile UUID is returned by the RPC and shown in the success toast.
 
-Hosted setup is **not yet performed or verified**. Migration `00014` must be reviewed and applied to the
-intended Neon branch before the website route can succeed. If the hosted profile does not have exactly
-one row for the configured email, stop and inspect the actual database before changing any identity.
+The hosted database was inspected on 2026-11-08: exactly one application profile row exists, it is the
+owner's configured existing profile (profile `518d403a-a5eb-4f7d-afbb-a600f8923afa` ↔ Auth
+`25c8d456-…99c`), role `admin`, `is_active = true`. Migration `00014` seeded the `initial_admin_setup`
+marker with this pairing
+so the claim flow is permanently disabled; the completed profile UUID was returned by the seeded marker
+rather than by a website claim. Do not perform the claim or attempt setup through the route again.
 
 ---
 
@@ -389,9 +392,17 @@ request, and refresh/re-login updates the visible navigation.
 - [x] Role/status changes use an audited database RPC; direct protected-column updates are revoked.
 - [x] Existing profile RLS and financial-data policies remain in force.
 - [ ] Hosted JWT forwarding observed under a real session.
-- [ ] Authenticated RLS evaluation observed for admin, member and outsider.
-- [ ] Two-account signup/login, profile provisioning and role-management tests passed against hosted Neon.
-- [ ] Initial-admin profile UUID and role verified from the actual hosted database.
+- [ ] Two-account signup/login, profile provisioning and role-management tests passed in the browser
+      against hosted Neon (database/RPC level is verified; the UI walkthrough is not).
+- [x] Initial-admin profile UUID and role verified from the actual hosted database:
+      profile `518d403a-a5eb-4f7d-afbb-a600f8923afa` ↔ Auth id `25c8d456-…99c`, role `admin`,
+      `is_active = true`; migration `00014` seeded the `initial_admin_setup` marker with this
+      pairing, so the one-time claim flow is permanently disabled as designed.
+- [x] Migration `00014` verified against the hosted Neon branch: 18 structural + 90 behavioural
+      rollback-only checks passed — signup provisioning forces `member` and is idempotent,
+      `update_user_access` requires an active admin and audit-logs every applied change, members
+      cannot read/modify other profiles, ordinary updates cannot change protected columns, and
+      `claim_initial_admin` rejects both strangers and the completed owner claim.
 
 The unchecked items require a provisioned test account and are tracked in `docs/PROJECT_STATUS.md`.
 
@@ -413,20 +424,41 @@ The unchecked items require a provisioned test account and are tracked in `docs/
 - Local TypeScript/build validation covers signup, profile provisioning, initial-admin setup and
   user-management page code; this does not verify Hosted Better Auth or PostgreSQL behavior.
 
+### Verified against the hosted database (2026-11-08)
+
+- Migrations `00011`–`00014` applied to the hosted Neon branch via a direct SQL connection; the
+  branch is now at `00014`.
+- Regenerated `src/types/database.types.ts` from the migrated hosted schema.
+- Structural checks against hosted (18 passed): all workflow functions exist and are granted to
+  `authenticated` only; no client write privilege on `payments`/`payouts`; `profiles` table-level
+  write is `INSERT` with the `UPDATE` grant restricted to `full_name, phone`; no DELETE policies
+  exist anywhere; `initial_admin_setup` revokes all client privileges; the setup marker binds the
+  owner's profile and Auth identity.
+- Behavioural checks against hosted (90 passed, rollback-only): provisioning via
+  `ensure_own_profile()` creates a member-role profile and is idempotent; conflicting emails (the
+  owner's included) are refused; `update_user_access()` promotes/demotes and
+  deactivates/activates atomically and writes exactly one audit row per applied change with the
+  correct actor, target and old/new values; members (mocked member JWT) cannot invoke the RPC,
+  cannot see or modify other profiles, and cannot change `role`/`is_active`/`auth_user_id` through
+  ordinary updates; forged profile inserts/deletes and forged audit reads/inserts/updates/deletes
+  are all denied; `claim_initial_admin()` rejects a stranger and rejects the owner because setup is
+  already completed (the marker was seeded by the migration); the deployed function sources contain
+  the advisory-lock serialization, the self-change block and the last-admin guard. See
+  `docs/PROJECT_STATUS.md` for the full check record.
+- Hosted data state after verification: exactly one profile (the owner), zero groups, zero members,
+  zero audit rows — no test data was committed.
+
 ### Not verified (blocked on credentials)
 
-- Successful sign-in/sign-out and the `authenticated` phase.
+- Successful sign-in/sign-out and the `authenticated` phase in the browser.
 - Session persistence across reloads and cross-tab updates.
 - Profile loading, role dashboards and inactive-account handling with real accounts.
-- `ensure_own_profile()` success and the onboarding transition.
+- `ensure_own_profile()` success and the onboarding transition through the UI.
 - Signup, duplicate email handling and email verification with the hosted Better Auth configuration.
-- Migration `00014`, initial admin profile linking, and the complete existing profile UUID.
-- Admin role promotion/demotion, last-admin/self-change rejection and access deactivation through the
-  authenticated Data API.
+- Admin role promotion/demotion behaviour through the User Management page in the browser.
 - Password-reset email delivery and a complete password change.
-- Hosted JWT forwarding and authenticated RLS visibility.
-
-Do not describe these as passed until they are exercised with a real hosted session.
+- Direct browser JWT forwarding visibility (the Data API path is exercised only in the database
+  verification above, not through the running app).
 
 ---
 

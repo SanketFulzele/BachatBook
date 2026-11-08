@@ -1,9 +1,10 @@
 # Bachat Book deployment and recovery
 
-> **Status (2026-11-04):** the selected HTTPS URL serves the app at `/`, but direct route requests
-> currently return Vercel 404s. A Vercel SPA rewrite and the signup/role-management implementation
-> are local and not deployed. Migrations `00011`–`00014` are pending; hosted authentication and
-> production verification have not been performed.
+> **Status (2026-11-08):** migrations `00011`–`00016` are applied to the hosted Neon branch and
+> verified there (18 + 32 rollback-only checks; hosted data unaffected). The selected HTTPS URL
+> serves the app at `/`, but direct route requests still return Vercel 404s: the SPA rewrite in
+> `vercel.json` and the signup/role-management/add-member implementation are local and not deployed.
+> Real hosted sign-in with credentials and production environment variables remain unverified.
 
 ## 1. Release prerequisites
 
@@ -13,7 +14,7 @@
    the production database.
 3. Check the current database backup/PITR retention and restore options for the Neon plan. Record the
    operator and the recovery point before changing production.
-4. Review and apply migrations `00011`–`00014` to the confirmed production branch in numeric order using the
+4. Review and apply migrations `00011`–`00016` to the confirmed production branch in numeric order using the
    direct connection string and a trusted SQL client or protected CI job. Stop on the first failure.
    Never put `DATABASE_URL` in frontend hosting settings. Verify the resulting schema, policies, and
    functions using the queries in [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md).
@@ -21,6 +22,10 @@
    Neon Auth user ID is the intended existing account before applying; do not substitute another
    account or use the flow to create a new Neon Auth user. If an application Admin already exists,
    the migration seeds the permanent setup marker and the claim flow remains disabled.
+   Migration `00015` adds `add_profiles_to_group()`, the trusted admin-only RPC used to add registered
+   members to a group. Migration `00016` rebuilds both cycle-activation functions to exclude installment
+   recipients from their own obligations and rebuilds `record_payout()` to refuse when contributions
+   remain outstanding; review before applying to a branch holding live cycles.
 5. Regenerate database types from the migrated target schema with `npm run generate-types`; review
    the generated diff before including it in the release.
 6. Run the release checks:
@@ -123,17 +128,20 @@ real family records.
 
 ## 6. Current deployment record
 
-| Item                              | Status                                                                                                     |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Hosting provider / production URL | Vercel / <https://bachat-book-circle.vercel.app> (selected; root responds over HTTPS)                      |
-| Frontend deployment / HTTPS       | Existing page is reachable; this release is not deployed and deep routes return 404                        |
-| Production environment variables  | Not configured or verified                                                                                 |
-| Vercel deployment access          | Not connected to this execution; no Vercel CLI/token is available                                          |
-| Neon Auth origin / reset URL      | Not configured or verified for a production domain                                                         |
-| Production migrations             | `00011`–`00014` pending; no database connection/client is available in this execution                      |
-| Remote public smoke checks        | Root login loaded at 390px with no horizontal overflow/console errors; direct app routes return 404        |
-| Authenticated smoke tests         | Not run                                                                                                    |
-| Signup and two-account role tests | Not run against hosted Neon                                                                                |
-| Initial Admin profile link        | Not verified; complete hosted profile UUID not queried                                                     |
-| Backup retention / restore        | Not verified against the production Neon plan                                                              |
-| PWA                               | `public/site.webmanifest` and favicon/install icons exist; no service worker/offline caching is configured |
+| Item                              | Status                                                                                                                                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Hosting provider / production URL | Vercel / <https://bachat-book-circle.vercel.app> (selected; root responds over HTTPS)                                                                                                                  |
+| Frontend deployment / HTTPS       | Existing page is reachable; this release is not deployed and deep routes return 404                                                                                                                    |
+| Production environment variables  | Not configured or verified                                                                                                                                                                             |
+| Vercel deployment access          | Not connected to this execution; no Vercel CLI/token is available                                                                                                                                      |
+| Neon Auth origin / reset URL      | Not configured or verified for a production domain                                                                                                                                                     |
+| Production migrations             | `00011`–`00016` applied to the hosted branch (2026-11-08) and verified; `00014` seeded the claim marker with the existing owner profile, permanently disabling the one-time setup flow by design       |
+| Database types                    | `src/types/database.types.ts` regenerated from the migrated hosted schema (2026-11-08, includes `add_profiles_to_group`)                                                                               |
+| Hosted structural verification    | 18 checks passed for `00011`–`00014`; RPC grant for `add_profiles_to_group` confirmed for `authenticated` only in `00015` work                                                                         |
+| Hosted behavioural verification   | 90 + 32 rollback-only checks passed (provisioning, role/access RPC, audit trail, profiles RLS, trigger guard, claim flow, add-profiles-to-group idempotency/admin guard/audit); hosted data unaffected |
+| Remote public smoke checks        | Root login loaded at 390px with no horizontal overflow/console errors; direct app routes return 404                                                                                                    |
+| Authenticated smoke tests         | Not run (no real hosted sign-in with credentials yet)                                                                                                                                                  |
+| Signup and two-account role tests | Database/RPC level verified against hosted Neon; browser-level signup and role changes remain to be run with real accounts                                                                             |
+| Initial Admin profile link        | Verified in the hosted database: profile `518d403a-…3afa` ↔ Auth `25c8d456-…99c`, role `admin`, `is_active = true`                                                                                     |
+| Backup retention / restore        | Not verified against the production Neon plan                                                                                                                                                          |
+| PWA                               | `public/site.webmanifest` and favicon/install icons exist; no service worker/offline caching is configured                                                                                             |
