@@ -6,18 +6,23 @@ import { fetchSnapshot } from '@/features/bhishi/api/bhishi-api'
 import { computeMemberLedger } from '../lib/ledger'
 import type { MemberLedger } from '../types'
 
-export function useMemberLedger(memberId: string) {
+/** One cached raw snapshot shared by ledgers and payout charts. */
+export function useRawSnapshot() {
   const auth = useAuth()
   const profileId = auth.user?.id ?? ''
 
-  const query = useQuery({
+  return useQuery({
     queryKey: queryKeys.bhishi.rawSnapshot(profileId),
     queryFn: async () => fetchSnapshot(),
-    enabled: Boolean(profileId && memberId),
+    enabled: Boolean(profileId),
   })
+}
+
+export function useMemberLedger(memberId: string) {
+  const query = useRawSnapshot()
 
   const ledger = useMemo<MemberLedger | null>(() => {
-    if (!query.data) return null
+    if (!query.data || !memberId) return null
     try {
       return computeMemberLedger(query.data, memberId)
     } catch (error) {

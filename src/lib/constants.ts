@@ -21,6 +21,7 @@ export const ROUTES = {
     installments: '/admin/installments',
     payments: '/admin/payments',
     payouts: '/admin/payouts',
+    charts: '/admin/charts',
     profile: '/admin/profile',
   },
   member: {
@@ -28,6 +29,7 @@ export const ROUTES = {
     groups: '/member/groups',
     installments: '/member/installments',
     payments: '/member/payments',
+    charts: '/member/charts',
     profile: '/member/profile',
     ledger: '/member/ledger',
   },

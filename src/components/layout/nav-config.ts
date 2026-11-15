@@ -1,6 +1,7 @@
 import {
   BookOpenCheck,
   CalendarDays,
+  ChartLine,
   CreditCard,
   LayoutDashboard,
   Shield,
@@ -26,6 +27,7 @@ export const adminNavigation: NavigationItem[] = [
 export const adminDrawerNavigation: NavigationItem[] = [
   { label: 'Installments', href: ROUTES.admin.installments, icon: CalendarDays },
   { label: 'Payouts', href: ROUTES.admin.payouts, icon: Wallet },
+  { label: 'Charts', href: ROUTES.admin.charts, icon: ChartLine },
   { label: 'User Management', href: ROUTES.admin.userManagement, icon: Shield },
   { label: 'Profile', href: ROUTES.admin.profile, icon: UserRound },
 ]
@@ -39,5 +41,6 @@ export const memberNavigation: NavigationItem[] = [
 
 export const memberDrawerNavigation: NavigationItem[] = [
   { label: 'Payments', href: ROUTES.member.payments, icon: CreditCard },
+  { label: 'Charts', href: ROUTES.member.charts, icon: ChartLine },
   { label: 'My profile', href: ROUTES.member.profile, icon: UserRound },
 ]

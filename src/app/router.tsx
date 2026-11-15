@@ -126,6 +126,18 @@ const MemberLedgerPage = lazy(() =>
   })),
 )
 
+const AdminMemberChartsPage = lazy(() =>
+  import('@/features/charts/pages/admin-member-charts-page').then((module) => ({
+    default: module.AdminMemberChartsPage,
+  })),
+)
+
+const MemberChartsPage = lazy(() =>
+  import('@/features/charts/pages/member-charts-page').then((module) => ({
+    default: module.MemberChartsPage,
+  })),
+)
+
 const UserManagementPage = lazy(() =>
   import('@/features/users/pages/user-management-page').then((module) => ({
     default: module.UserManagementPage,
@@ -165,6 +177,7 @@ export const router = createBrowserRouter([
               { path: 'installments', element: <InstallmentsPage /> },
               { path: 'payments', element: <PaymentsPage /> },
               { path: 'payouts', element: <PayoutsPage /> },
+              { path: 'charts', element: <AdminMemberChartsPage /> },
               { path: 'profile', element: <ProfilePage /> },
             ],
           },
@@ -183,6 +196,7 @@ export const router = createBrowserRouter([
               { path: 'installments', element: <MemberInstallmentsPage /> },
               { path: 'payments', element: <MemberPaymentsPage /> },
               { path: 'ledger', element: <MemberLedgerPage /> },
+              { path: 'charts', element: <MemberChartsPage /> },
               { path: 'profile', element: <ProfilePage /> },
             ],
           },
