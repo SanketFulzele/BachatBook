@@ -24,7 +24,7 @@ export function Logo({ size = 'md', variant = 'dark', showTagline = false, class
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
       <img
-        src="/bachat-book-logo.png"
+        src="/bachat-book-logo.svg"
         alt=""
         className={cn('shrink-0 rounded-[9px]', markSizes[size])}
         width={44}
