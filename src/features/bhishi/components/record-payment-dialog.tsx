@@ -156,11 +156,6 @@ function RecordPaymentForm({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          {confirming ? (
-            <Button type="button" variant="outline" onClick={() => setConfirming(false)}>
-              Back
-            </Button>
-          ) : null}
           <Button
             type="submit"
             form="record-payment-form"
