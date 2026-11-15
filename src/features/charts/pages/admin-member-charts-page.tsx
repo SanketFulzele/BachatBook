@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { PageLoading } from '@/components/feedback/page-loading'
+import { useAuth } from '@/features/auth/components/auth-context'
 import { DataError } from '@/features/bhishi/components/data-error'
 import { EmptyState } from '@/features/bhishi/components/empty-state'
 import { useRawSnapshot } from '@/features/members/hooks/use-ledger'
@@ -12,6 +13,8 @@ import { MemberChartsView } from '../components/member-charts-view'
 import { useMemberPayoutSeries } from '../hooks/use-payout-series'
 
 export function AdminMemberChartsPage() {
+  const auth = useAuth()
+  const profileId = auth.user?.id ?? ''
   const [selectedMemberId, setSelectedMemberId] = useState('')
   const query = useRawSnapshot()
 
@@ -20,10 +23,15 @@ export function AdminMemberChartsPage() {
     [query.data],
   )
 
-  // Default to the first member, and fall back safely if the selected member
-  // disappears after a data refresh.
+  // Default to the signed-in admin's own member record so the page opens on
+  // "his" charts, then fall back to the first member and to the current
+  // selection (which may disappear after a data refresh).
+  const ownMember = useMemo(
+    () => (profileId ? members.find((member) => member.profile_id === profileId) : undefined),
+    [members, profileId],
+  )
   const activeMember =
-    members.find((member) => member.id === selectedMemberId) ?? members[0] ?? null
+    members.find((member) => member.id === selectedMemberId) ?? ownMember ?? members[0] ?? null
   const { series } = useMemberPayoutSeries(activeMember?.id ?? '')
 
   if (query.isPending) return <PageLoading />

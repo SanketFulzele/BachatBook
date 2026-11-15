@@ -1,4 +1,6 @@
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -15,6 +17,10 @@ import { formatAxisCurrency } from '../lib/chart-format'
 import type { PayoutChartPoint } from '../types'
 
 type ChartMode = 'cumulative' | 'individual'
+
+const CHART_MARGIN = { top: 8, right: 12, bottom: 0, left: 0 } as const
+
+const AXIS_TICK = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' } as const
 
 interface PayoutTooltipProps extends Partial<TooltipContentProps<number, string>> {
   mode: ChartMode
@@ -62,11 +68,10 @@ function PayoutChartCard({
   mode,
   emptyDescription,
 }: PayoutChartCardProps) {
-  const dataKey = mode === 'cumulative' ? 'cumulative' : 'amount'
   const chartLabel =
     mode === 'cumulative'
       ? `Cumulative payout line chart for ${memberName}`
-      : `Individual payout line chart for ${memberName}`
+      : `Individual payout bar chart for ${memberName}`
 
   return (
     <Card>
@@ -91,48 +96,104 @@ function PayoutChartCard({
         ) : (
           <div role="img" aria-label={chartLabel} className="h-64 w-full sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis
-                  dataKey="axisKey"
-                  tickFormatter={(value) => formatShortDate(String(value).slice(0, 10))}
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                  tickLine={false}
-                  axisLine={{ stroke: 'hsl(var(--border))' }}
-                  tickMargin={8}
-                  minTickGap={26}
-                  interval="preserveStartEnd"
-                  padding={{ left: 6, right: 6 }}
-                />
-                <YAxis
-                  width={64}
-                  domain={[0, 'auto']}
-                  tickFormatter={formatAxisCurrency}
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={4}
-                />
-                <Tooltip
-                  content={<PayoutTooltip mode={mode} />}
-                  cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
-                />
-                <Line
-                  type="linear"
-                  dataKey={dataKey}
-                  name={mode === 'cumulative' ? 'Cumulative payout' : 'Payout'}
-                  stroke="hsl(var(--success))"
-                  strokeWidth={2}
-                  dot={{
-                    r: 3.5,
-                    strokeWidth: 2,
-                    fill: 'hsl(var(--card))',
-                    stroke: 'hsl(var(--success))',
-                  }}
-                  activeDot={{ r: 5, strokeWidth: 2, fill: 'hsl(var(--card))' }}
-                  isAnimationActive={false}
-                />
-              </LineChart>
+              {mode === 'cumulative' ? (
+                <LineChart data={points} margin={CHART_MARGIN}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--border))"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="axisKey"
+                    tickFormatter={(value) => formatShortDate(String(value).slice(0, 10))}
+                    tick={AXIS_TICK}
+                    tickLine={false}
+                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                    tickMargin={8}
+                    minTickGap={26}
+                    interval="preserveStartEnd"
+                    padding={{ left: 6, right: 6 }}
+                  />
+                  <YAxis
+                    width={64}
+                    domain={[0, 'auto']}
+                    tickFormatter={formatAxisCurrency}
+                    tick={AXIS_TICK}
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={4}
+                  />
+                  <Tooltip
+                    content={<PayoutTooltip mode="cumulative" />}
+                    cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                  />
+                  <Line
+                    type="linear"
+                    dataKey="cumulative"
+                    name="Cumulative payout"
+                    stroke="hsl(var(--success))"
+                    strokeWidth={2}
+                    dot={{
+                      r: 3.5,
+                      strokeWidth: 2,
+                      fill: 'hsl(var(--card))',
+                      stroke: 'hsl(var(--success))',
+                    }}
+                    activeDot={{
+                      r: 5,
+                      strokeWidth: 2,
+                      fill: 'hsl(var(--success))',
+                      stroke: 'hsl(var(--card))',
+                    }}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              ) : (
+                <BarChart data={points} margin={CHART_MARGIN} barCategoryGap="28%">
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--border))"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="axisKey"
+                    tickFormatter={(value) => formatShortDate(String(value).slice(0, 10))}
+                    tick={AXIS_TICK}
+                    tickLine={false}
+                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                    tickMargin={8}
+                    minTickGap={26}
+                    interval="preserveStartEnd"
+                    padding={{ left: 6, right: 6 }}
+                  />
+                  <YAxis
+                    width={64}
+                    domain={[0, 'auto']}
+                    tickFormatter={formatAxisCurrency}
+                    tick={AXIS_TICK}
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={4}
+                  />
+                  <Tooltip
+                    content={<PayoutTooltip mode="individual" />}
+                    cursor={{ fill: 'hsl(var(--muted))', fillOpacity: 0.45 }}
+                  />
+                  <Bar
+                    dataKey="amount"
+                    name="Payout"
+                    fill="hsl(var(--success))"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={48}
+                    activeBar={{
+                      fill: 'hsl(var(--success))',
+                      stroke: 'hsl(var(--card))',
+                      strokeWidth: 1,
+                    }}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              )}
             </ResponsiveContainer>
           </div>
         )}
