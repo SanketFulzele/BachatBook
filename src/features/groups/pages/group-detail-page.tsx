@@ -368,24 +368,19 @@ export function GroupDetailPage() {
             </div>
             {isAdmin && !isArchived ? (
               <div className="flex flex-wrap gap-2">
-                {scheduledCycleIsScheduled ? (
-                  <Button size="sm" variant="outline" onClick={openEditScheduledCycle}>
-                    Edit scheduled cycle
-                  </Button>
-                ) : (
-                  <Button size="lg" onClick={() => setActivateCycleOpen(true)}>
-                    Activate cycle
-                  </Button>
-                )}
+                <Button size="sm" variant="outline" onClick={openEditScheduledCycle}>
+                  Edit scheduled cycle
+                </Button>
+                <Button size="lg" onClick={() => setActivateCycleOpen(true)}>
+                  Activate cycle
+                </Button>
               </div>
             ) : null}
           </div>
 
-          {!isArchived ? (
+          {!isArchived && draftCycle ? (
             <div className="rounded-xl bg-muted/60 px-3.5 py-2.5 text-sm text-muted-foreground">
-              {scheduledCycleIsScheduled
-                ? `This cycle has no payment obligations yet. It will activate automatically on ${formatDate(draftCycle.cycle.start_date)} after earlier cycles are complete.`
-                : 'Arrange the order below, then activate. Members cannot see this cycle until it is activated.'}
+              For testing you can activate whenever you need — the date is just metadata.
             </div>
           ) : null}
 
