@@ -231,8 +231,9 @@ export function GroupDetailPage() {
               <div className="ml-1 border-l border-border pl-2">
                 <DropdownMenu
                   label="Group actions"
+                  hideChevron
                   trigger={
-                    <span className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                       <Ellipsis className="h-5 w-5" aria-hidden="true" />
                     </span>
                   }
@@ -283,11 +284,11 @@ export function GroupDetailPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-border px-3.5 py-3">
               <p className="text-xs text-muted-foreground">Members</p>
-              <p className="mt-1 text-base font-semibold">{group.members.length}</p>
+              <p className="mt-1 text-[15px] font-semibold sm:text-base">{group.members.length}</p>
             </div>
             <div className="rounded-xl border border-border px-3.5 py-3">
               <p className="text-xs text-muted-foreground">Collection day</p>
-              <p className="mt-1 text-base font-semibold">
+              <p className="mt-1 text-[15px] font-semibold sm:text-base">
                 {summaryCycle?.cycle.collection_day_snapshot ?? group.group.collection_day}
               </p>
             </div>
@@ -301,7 +302,7 @@ export function GroupDetailPage() {
             </div>
             <div className="rounded-xl border border-border px-3.5 py-3">
               <p className="text-xs text-muted-foreground">Cycle</p>
-              <p className="mt-1 truncate text-base font-semibold">
+              <p className="mt-1 truncate text-[15px] font-semibold sm:text-base">
                 {summaryCycle?.cycle.name ?? 'Not started'}
               </p>
             </div>
@@ -317,7 +318,7 @@ export function GroupDetailPage() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-secondary">Members</h2>
+          <h2 className="text-[15px] font-semibold text-secondary sm:text-base">Members</h2>
           {!isArchived ? (
             <Button
               size="sm"
@@ -354,7 +355,9 @@ export function GroupDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-secondary">{draftCycle.cycle.name}</h2>
+                <h2 className="text-[15px] font-semibold text-secondary sm:text-base">
+                  {draftCycle.cycle.name}
+                </h2>
                 <Badge variant={scheduledCycleIsScheduled ? 'warning' : 'neutral'} withDot>
                   {scheduledCycleIsScheduled ? 'Scheduled' : 'Draft'}
                 </Badge>
@@ -417,7 +420,9 @@ export function GroupDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-secondary">{activeCycle.cycle.name}</h2>
+                <h2 className="text-[15px] font-semibold text-secondary sm:text-base">
+                  {activeCycle.cycle.name}
+                </h2>
                 <Badge variant="success" withDot>
                   Current active cycle
                 </Badge>
@@ -473,7 +478,7 @@ export function GroupDetailPage() {
           ) : null}
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-secondary">Chit order</h3>
+            <h3 className="mb-2 text-[13px] font-semibold text-secondary sm:text-sm">Chit order</h3>
             <div className="divide-y divide-border rounded-xl border border-border bg-card">
               {activeCycle.members.map((cycleMember) => (
                 <div
@@ -500,7 +505,9 @@ export function GroupDetailPage() {
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-secondary">Cycle schedule</h3>
+            <h3 className="mb-2 text-[13px] font-semibold text-secondary sm:text-sm">
+              Cycle schedule
+            </h3>
             <InstallmentList
               cycle={activeCycle}
               currentProfileId={snapshot.profileId}
@@ -514,7 +521,7 @@ export function GroupDetailPage() {
       {!isArchived && isAdmin && !activeCycle && !draftCycle && previousCycles.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 p-6 text-center sm:p-7">
-            <h2 className="text-base font-semibold text-secondary">
+            <h2 className="text-[15px] font-semibold text-secondary sm:text-base">
               {hasCycleHistory ? 'Start the next cycle' : 'Ready to start?'}
             </h2>
             <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">
@@ -531,7 +538,7 @@ export function GroupDetailPage() {
 
       {previousCycles.length > 0 ? (
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-secondary">Previous cycles</h2>
+          <h2 className="text-[15px] font-semibold text-secondary sm:text-base">Previous cycles</h2>
           {previousCycles.map((cycle) => (
             <details key={cycle.cycle.id} className="rounded-xl border border-border bg-card">
               <summary className="flex list-none cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-medium">

@@ -2,11 +2,13 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ComponentProps,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, ChevronDown, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +26,56 @@ export interface DropdownMenuProps {
   label: string
   className?: string
   menuClassName?: string
+  /** Hide the chevron indicator (useful for icon-only action triggers). */
+  hideChevron?: boolean
+}
+
+interface MenuPosition {
+  top: number
+  left: number
+  placement: 'top' | 'bottom'
+  maxHeight: number
+}
+
+const VIEWPORT_MARGIN = 8
+const OFFSET = 8
+
+function computeMenuPosition(
+  trigger: HTMLElement,
+  menu: HTMLElement,
+  align: 'start' | 'end',
+  preferredSide: 'top' | 'bottom',
+): MenuPosition {
+  const triggerRect = trigger.getBoundingClientRect()
+  const menuRect = menu.getBoundingClientRect()
+  const menuWidth = menuRect.width
+  const menuHeight = menuRect.height
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+
+  const spaceBelow = viewportHeight - triggerRect.bottom - VIEWPORT_MARGIN
+  const spaceAbove = triggerRect.top - VIEWPORT_MARGIN
+  let placement = preferredSide
+
+  if (placement === 'bottom' && menuHeight > spaceBelow && spaceAbove > spaceBelow) {
+    placement = 'top'
+  } else if (placement === 'top' && menuHeight > spaceAbove && spaceBelow > spaceAbove) {
+    placement = 'bottom'
+  }
+
+  const available = placement === 'bottom' ? spaceBelow : spaceAbove
+  const maxHeight = Math.max(120, Math.min(menuHeight, available - OFFSET))
+
+  let top =
+    placement === 'bottom'
+      ? triggerRect.bottom + OFFSET
+      : triggerRect.top - Math.min(menuHeight, maxHeight) - OFFSET
+
+  let left = align === 'end' ? triggerRect.right - menuWidth : triggerRect.left
+  left = Math.min(Math.max(VIEWPORT_MARGIN, left), viewportWidth - menuWidth - VIEWPORT_MARGIN)
+  top = Math.min(Math.max(VIEWPORT_MARGIN, top), viewportHeight - maxHeight - VIEWPORT_MARGIN)
+
+  return { top, left, placement, maxHeight }
 }
 
 export function DropdownMenu({
@@ -34,24 +86,39 @@ export function DropdownMenu({
   label,
   className,
   menuClassName,
+  hideChevron = false,
 }: DropdownMenuProps) {
   const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState<MenuPosition | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const updatePosition = () => {
+    if (!triggerRef.current || !menuRef.current) return
+    setPosition(computeMenuPosition(triggerRef.current, menuRef.current, align, side))
+  }
+
+  const setMenuOpen = (next: boolean | ((value: boolean) => boolean)) => {
+    setOpen((value) => {
+      const resolved = typeof next === 'function' ? next(value) : next
+      if (!resolved) setPosition(null)
+      return resolved
+    })
+  }
 
   useEffect(() => {
     if (!open) return
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setOpen(false)
-      }
+      const target = event.target as Node
+      if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) return
+      setMenuOpen(false)
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setOpen(false)
+        setMenuOpen(false)
         triggerRef.current?.focus()
       }
     }
@@ -64,8 +131,22 @@ export function DropdownMenu({
     }
   }, [open])
 
+  useLayoutEffect(() => {
+    if (!open) return
+    // Measure after paint so the portal menu has its natural size, then clamp.
+    const frame = window.requestAnimationFrame(updatePosition)
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, align, side])
+
   const close = () => {
-    setOpen(false)
+    setMenuOpen(false)
     triggerRef.current?.focus()
   }
 
@@ -78,77 +159,90 @@ export function DropdownMenu({
     return () => window.cancelAnimationFrame(frame)
   }, [open])
 
+  const placement = position?.placement ?? side
+
   return (
     <DropdownContext.Provider value={{ close }}>
-      <div ref={containerRef} className={cn('relative', className)}>
+      <div ref={containerRef} className={cn('relative inline-flex', className)}>
         <button
           ref={triggerRef}
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={label}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => setMenuOpen((value) => !value)}
           onKeyDown={(event) => {
             if (event.key === 'ArrowDown') {
               event.preventDefault()
-              setOpen(true)
+              setMenuOpen(true)
             }
           }}
           className="inline-flex items-center gap-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {trigger}
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-              open && 'rotate-180',
-            )}
-            aria-hidden="true"
-          />
+          {hideChevron ? null : (
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                open && 'rotate-180',
+              )}
+              aria-hidden="true"
+            />
+          )}
         </button>
 
-        {open ? (
-          <div
-            ref={menuRef}
-            role="menu"
-            aria-label={label}
-            className={cn(
-              'absolute z-40 min-w-52 rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-elevated animate-scale-in',
-              side === 'bottom' ? 'top-[calc(100%+0.5rem)]' : 'bottom-[calc(100%+0.5rem)]',
-              align === 'end'
-                ? side === 'bottom'
-                  ? 'right-0 origin-top-right'
-                  : 'right-0 origin-bottom-right'
-                : side === 'bottom'
-                  ? 'left-0 origin-top-left'
-                  : 'left-0 origin-bottom-left',
-              menuClassName,
-            )}
-            onKeyDown={(event) => {
-              const items = Array.from(
-                menuRef.current?.querySelectorAll<HTMLElement>(
-                  '[role="menuitem"]:not([disabled])',
-                ) ?? [],
-              )
-              const currentIndex = items.indexOf(document.activeElement as HTMLElement)
+        {open && typeof document !== 'undefined'
+          ? createPortal(
+              <div
+                ref={menuRef}
+                role="menu"
+                aria-label={label}
+                style={{
+                  position: 'fixed',
+                  top: position?.top ?? -9999,
+                  left: position?.left ?? -9999,
+                  maxHeight: position?.maxHeight,
+                  visibility: position ? 'visible' : 'hidden',
+                }}
+                className={cn(
+                  'z-[80] min-w-52 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-elevated animate-scale-in',
+                  placement === 'bottom'
+                    ? align === 'end'
+                      ? 'origin-top-right'
+                      : 'origin-top-left'
+                    : align === 'end'
+                      ? 'origin-bottom-right'
+                      : 'origin-bottom-left',
+                  menuClassName,
+                )}
+                onKeyDown={(event) => {
+                  const items = Array.from(
+                    menuRef.current?.querySelectorAll<HTMLElement>(
+                      '[role="menuitem"]:not([disabled])',
+                    ) ?? [],
+                  )
+                  const currentIndex = items.indexOf(document.activeElement as HTMLElement)
 
-              if (event.key === 'ArrowDown') {
-                event.preventDefault()
-                items[(currentIndex + 1) % items.length]?.focus()
-              } else if (event.key === 'ArrowUp') {
-                event.preventDefault()
-                items[(currentIndex - 1 + items.length) % items.length]?.focus()
-              } else if (event.key === 'Home') {
-                event.preventDefault()
-                items[0]?.focus()
-              } else if (event.key === 'End') {
-                event.preventDefault()
-                items[items.length - 1]?.focus()
-              }
-            }}
-          >
-            {children}
-          </div>
-        ) : null}
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault()
+                    items[(currentIndex + 1) % items.length]?.focus()
+                  } else if (event.key === 'ArrowUp') {
+                    event.preventDefault()
+                    items[(currentIndex - 1 + items.length) % items.length]?.focus()
+                  } else if (event.key === 'Home') {
+                    event.preventDefault()
+                    items[0]?.focus()
+                  } else if (event.key === 'End') {
+                    event.preventDefault()
+                    items[items.length - 1]?.focus()
+                  }
+                }}
+              >
+                {children}
+              </div>,
+              document.body,
+            )
+          : null}
       </div>
     </DropdownContext.Provider>
   )
@@ -187,7 +281,7 @@ export function DropdownMenuItem({
           onSelect?.()
         }}
         className={cn(
-          'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
+          'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] transition-colors sm:text-sm',
           'hover:bg-muted focus-visible:bg-muted focus-visible:outline-none',
           'disabled:pointer-events-none disabled:opacity-50',
           destructive ? 'text-destructive hover:bg-destructive-soft' : 'text-foreground',

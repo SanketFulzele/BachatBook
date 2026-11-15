@@ -18,8 +18,8 @@ const variantClasses: Record<ButtonVariant, string> = {
 
 const buttonSizeClasses: Record<ButtonSize, string> = {
   sm: 'h-8 gap-1.5 rounded-md px-3 text-xs',
-  md: 'h-10 gap-2 rounded-lg px-4 text-sm',
-  lg: 'h-11 gap-2 rounded-lg px-5 text-sm',
+  md: 'h-10 gap-2 rounded-lg px-4 text-[13px] sm:text-sm',
+  lg: 'h-11 gap-2 rounded-lg px-5 text-[13px] sm:text-sm',
   icon: 'h-10 w-10 rounded-lg',
 }
 

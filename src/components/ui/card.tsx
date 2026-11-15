@@ -20,14 +20,22 @@ export function CardHeader({ className, ...props }: ComponentProps<'div'>) {
 export function CardTitle({ className, ...props }: ComponentProps<'h3'>) {
   return (
     <h3
-      className={cn('text-base font-semibold leading-tight tracking-tight', className)}
+      className={cn(
+        'text-[15px] font-semibold leading-tight tracking-tight sm:text-base',
+        className,
+      )}
       {...props}
     />
   )
 }
 
 export function CardDescription({ className, ...props }: ComponentProps<'p'>) {
-  return <p className={cn('text-sm leading-5 text-muted-foreground', className)} {...props} />
+  return (
+    <p
+      className={cn('text-[13px] leading-5 text-muted-foreground sm:text-sm', className)}
+      {...props}
+    />
+  )
 }
 
 export function CardContent({ className, ...props }: ComponentProps<'div'>) {
