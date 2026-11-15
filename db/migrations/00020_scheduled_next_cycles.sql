@@ -8,7 +8,17 @@
 
 begin;
 
-create extension if not exists pg_cron;
+-- pg_cron is optional. On Neon it can usually only be created in the postgres
+-- database; if it is unavailable the migration proceeds and the app's Activate
+-- button still works — the admin simply activates due cycles explicitly.
+do $$
+begin
+  create extension if not exists pg_cron;
+  raise notice 'pg_cron extension present';
+exception when others then
+  raise notice 'pg_cron not available here (%); skipping automatic scheduling.', sqlerrm;
+end;
+$$;
 
 create or replace function public.create_scheduled_cycle(
   target_group_id uuid,
@@ -686,7 +696,15 @@ revoke all on function public.process_due_scheduled_cycles(date) from public, au
 do $$
 declare
   v_job_id bigint;
+  v_cron_present boolean;
 begin
+  select exists(select 1 from pg_extension where extname = 'pg_cron') into v_cron_present;
+
+  if not v_cron_present then
+    raise notice 'pg_cron is not available in this database; automatic cycle activation is disabled. Use the Activate cycle button when a draft is due.';
+    return;
+  end if;
+
   select jobid into v_job_id
   from cron.job
   where jobname = 'bachat-book-activate-scheduled-cycles';
