@@ -78,9 +78,9 @@ export function AppDrawer({ open, onClose, items, homeHref, roleLabel }: AppDraw
         id="app-drawer"
         ref={panelRef}
         tabIndex={-1}
-        className="absolute inset-y-0 left-0 flex w-[min(20rem,85vw)] flex-col border-r border-border bg-card shadow-elevated outline-none animate-slide-in-left overflow-y-auto"
+        className="absolute inset-y-0 left-0 flex w-[min(20rem,85vw)] flex-col overflow-hidden border-r border-border bg-card shadow-elevated outline-none animate-slide-in-left"
       >
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-4">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-4">
           <Link
             to={homeHref}
             onClick={onClose}
@@ -101,7 +101,10 @@ export function AppDrawer({ open, onClose, items, homeHref, roleLabel }: AppDraw
           </button>
         </div>
 
-        <nav aria-label={`${roleLabel} navigation`} className="flex-1 px-3 py-3">
+        <nav
+          aria-label={`${roleLabel} navigation`}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3"
+        >
           <ul className="space-y-1">
             {items.map((item) => (
               <li key={item.href}>
@@ -125,7 +128,7 @@ export function AppDrawer({ open, onClose, items, homeHref, roleLabel }: AppDraw
           </ul>
         </nav>
 
-        <div className="border-t border-border px-4 py-4">
+        <div className="shrink-0 border-t border-border px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
           {user ? (
             <>
               <div className="flex items-center gap-3">

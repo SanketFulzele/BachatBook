@@ -248,7 +248,6 @@ export async function recordPayment(input: {
   amount: number
   paymentDate: string
   method: ContributionPaymentMethod
-  reference: string
   notes: string
 }): Promise<void> {
   const { error } = await getNeonDataApi().rpc('record_payment', {
@@ -256,7 +255,6 @@ export async function recordPayment(input: {
     payment_amount: input.amount,
     target_payment_date: input.paymentDate,
     target_payment_method: input.method,
-    payment_reference: input.reference.trim() || undefined,
     payment_notes: input.notes.trim() || undefined,
   })
 
@@ -269,7 +267,6 @@ export async function recordGroupPayment(input: {
   amount: number
   paymentDate: string
   method: ContributionPaymentMethod
-  reference: string
   notes: string
 }): Promise<void> {
   const { error } = await getNeonDataApi().rpc('record_group_payment', {
@@ -278,7 +275,6 @@ export async function recordGroupPayment(input: {
     payment_amount: input.amount,
     target_payment_date: input.paymentDate,
     target_payment_method: input.method,
-    payment_reference: input.reference.trim() || undefined,
     payment_notes: input.notes.trim() || undefined,
   })
 

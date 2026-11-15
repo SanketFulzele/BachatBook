@@ -20,6 +20,26 @@ const sizeClasses = {
   lg: 'max-w-2xl',
 } as const
 
+// A stack of open dialogs so closing one never unlocks scrolling while another
+// is still open (e.g. a dialog opened from inside another dialog).
+let openDialogCount = 0
+let bodyOverflowBeforeLock = ''
+
+function lockBodyScroll() {
+  if (openDialogCount === 0) {
+    bodyOverflowBeforeLock = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
+  openDialogCount += 1
+}
+
+function unlockBodyScroll() {
+  openDialogCount = Math.max(0, openDialogCount - 1)
+  if (openDialogCount === 0) {
+    document.body.style.overflow = bodyOverflowBeforeLock
+  }
+}
+
 export function Dialog({
   open,
   onOpenChange,
@@ -43,8 +63,7 @@ export function Dialog({
   useEffect(() => {
     if (!open) return
 
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    lockBodyScroll()
     // Don't pull focus away from a child that already autofocused.
     if (!panelRef.current?.contains(document.activeElement)) panelRef.current?.focus()
 
@@ -57,7 +76,7 @@ export function Dialog({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.body.style.overflow = previousOverflow
+      unlockBodyScroll()
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [open])
@@ -66,13 +85,13 @@ export function Dialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onOpenChange(false)
       }}
     >
-      <div className="absolute inset-0 bg-secondary/45 backdrop-blur-[2px] animate-fade-in" />
+      <div className="pointer-events-none fixed inset-0 bg-secondary/45 backdrop-blur-[2px] animate-fade-in" />
       <div
         ref={panelRef}
         role="dialog"
@@ -81,7 +100,7 @@ export function Dialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          'relative z-10 flex max-h-[min(100dvh-2rem,48rem)] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-elevated outline-none animate-scale-in',
+          'relative z-10 my-auto flex max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-elevated outline-none animate-scale-in',
           sizeClasses[size],
           className,
         )}
@@ -108,7 +127,9 @@ export function Dialog({
         </div>
 
         {children ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6 sm:py-5">
+            {children}
+          </div>
         ) : null}
         {footer ? (
           <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-border bg-card px-5 py-4 sm:px-6">

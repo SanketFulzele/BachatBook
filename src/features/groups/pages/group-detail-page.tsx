@@ -368,7 +368,7 @@ export function GroupDetailPage() {
             </div>
             {isAdmin && !isArchived ? (
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={openEditScheduledCycle}>
+                <Button size="lg" variant="outline" onClick={openEditScheduledCycle}>
                   Edit scheduled cycle
                 </Button>
                 <Button size="lg" onClick={() => setActivateCycleOpen(true)}>

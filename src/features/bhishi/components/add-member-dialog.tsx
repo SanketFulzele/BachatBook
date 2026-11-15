@@ -175,7 +175,7 @@ function AddMemberForm({
 
         <div
           aria-live="polite"
-          className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-border bg-card"
+          className="space-y-2 overflow-hidden rounded-xl border border-border bg-card"
         >
           {data.isPending ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">

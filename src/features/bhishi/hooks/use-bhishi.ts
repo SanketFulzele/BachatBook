@@ -169,7 +169,6 @@ export function useRecordPayment() {
       amount: number
       paymentDate: string
       method: ContributionPaymentMethod
-      reference: string
       notes: string
     }) => recordPayment(input),
     onSuccess: invalidate,

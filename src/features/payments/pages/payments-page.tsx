@@ -7,7 +7,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { PageLoading } from '@/components/feedback/page-loading'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { DataError } from '@/features/bhishi/components/data-error'
-import { EmptyState } from '@/features/bhishi/components/empty-state'
 import { RecordPaymentDialog } from '@/features/bhishi/components/record-payment-dialog'
 import { StatusBadge } from '@/features/bhishi/components/status-badge'
 import { VoidPaymentDialog } from '@/features/bhishi/components/void-payment-dialog'
@@ -72,41 +71,62 @@ export function PaymentsPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Outstanding</p>
-            <p className="mt-1 text-lg font-semibold text-destructive">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col justify-between gap-3 p-4 sm:p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Outstanding
+            </p>
+            <p className="text-xl font-semibold leading-tight text-destructive sm:text-2xl">
               {formatCurrency(outstandingTotal)}
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Pending contributions</p>
-            <p className="mt-1 text-lg font-semibold">{options.length}</p>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col justify-between gap-3 p-4 sm:p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Pending contributions
+            </p>
+            <p className="text-xl font-semibold leading-tight sm:text-2xl">
+              {options.length}
+              <span className="ml-1.5 text-xs font-medium text-muted-foreground">
+                {options.length === 1 ? 'installment' : 'installments'}
+              </span>
+            </p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardContent className="p-4 sm:p-5">
-          <h2 className="text-base font-semibold text-secondary">Outstanding contributions</h2>
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+            <h2 className="text-base font-semibold text-secondary">Outstanding contributions</h2>
+            {options.length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {options.length} {options.length === 1 ? 'installment' : 'installments'} awaiting
+                payment
+              </p>
+            ) : null}
+          </div>
 
           {options.length === 0 ? (
-            <p className="mt-3 rounded-lg bg-success-soft px-3 py-3 text-sm text-success">
+            <p className="mt-4 rounded-lg bg-success-soft px-4 py-3.5 text-sm text-success">
               Nothing is pending right now.
             </p>
           ) : (
-            <ul className="mt-3 divide-y divide-border">
+            <ul className="mt-1 divide-y divide-border">
               {options.map((option) => (
-                <li key={option.obligation.obligation.id} className="flex items-center gap-3 py-3">
+                <li
+                  key={option.obligation.obligation.id}
+                  className="flex flex-col gap-2.5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8"
+                >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
                       {option.obligation.member.full_name}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {option.groupName} · #{option.installment.installment.installment_number} ·{' '}
+                      {option.groupName} · Installment #
+                      {option.installment.installment.installment_number} ·{' '}
                       {formatDate(option.installment.installment.scheduled_date)}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -114,14 +134,16 @@ export function PaymentsPage() {
                       {formatCurrency(option.obligation.obligation.expected_amount)}
                     </p>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <StatusBadge status="pending" />
-                    <p className="text-sm font-semibold text-destructive">
-                      {formatCurrency(option.obligation.remaining)}
-                    </p>
+                  <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end sm:gap-5">
+                    <div className="flex flex-col items-start gap-1 sm:items-end">
+                      <StatusBadge status="pending" />
+                      <p className="text-sm font-semibold text-destructive">
+                        {formatCurrency(option.obligation.remaining)}
+                      </p>
+                    </div>
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => openPayment(option.obligation)}
                     >
                       Record
@@ -135,17 +157,19 @@ export function PaymentsPage() {
       </Card>
 
       <Card>
-        <CardContent className="p-4 sm:p-5">
+        <CardContent className="p-5 sm:p-6">
           <h2 className="text-base font-semibold text-secondary">Payment history</h2>
 
           {paymentHistory.length === 0 ? (
-            <EmptyState
-              icon={HandCoins}
-              title="No payments yet"
-              description="Recorded member payments will appear here."
-            />
+            <div className="mt-4 flex flex-col items-center rounded-lg border border-dashed border-border bg-muted/40 px-4 py-8 text-center">
+              <HandCoins className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium">No payments yet</p>
+              <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                Recorded member payments will appear here.
+              </p>
+            </div>
           ) : (
-            <ul className="mt-3 divide-y divide-border">
+            <ul className="mt-1 divide-y divide-border">
               {paymentHistory.map((payment) => {
                 const member = memberById.get(payment.member_id)
                 const installment = installmentById.get(payment.installment_id)
@@ -156,16 +180,22 @@ export function PaymentsPage() {
                   (profile) => profile.id === payment.voided_by,
                 )
                 return (
-                  <li key={payment.id} className="flex items-start gap-3 py-3">
-                    <div className="min-w-0">
+                  <li
+                    key={payment.id}
+                    className="flex flex-col gap-2.5 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
                       <p className="truncate text-sm font-medium">
                         {member?.full_name ?? 'Member'}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {installment
-                          ? `${groupNameForCycle(snapshot, installment.cycleId)} · #${installment.installment.installment_number}`
-                          : 'Payment'}{' '}
-                        · {formatDate(payment.payment_date)} · {methodLabel[payment.payment_method]}
+                          ? `${groupNameForCycle(snapshot, installment.cycleId)} · Installment #${installment.installment.installment_number}`
+                          : 'Payment'}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        Paid {formatDate(payment.payment_date)} · Recorded{' '}
+                        {formatDate(payment.created_at)} by {recordedBy?.full_name ?? 'Admin'}
                       </p>
                       {payment.reference_number ? (
                         <p className="truncate text-xs text-muted-foreground">
@@ -175,36 +205,42 @@ export function PaymentsPage() {
                       {payment.notes ? (
                         <p className="truncate text-xs text-muted-foreground">{payment.notes}</p>
                       ) : null}
-                      <p className="truncate text-xs text-muted-foreground">
-                        Recorded {formatDate(payment.created_at)} by{' '}
-                        {recordedBy?.full_name ?? 'Admin'}
-                        {payment.is_voided
-                          ? ` · Voided ${payment.voided_at ? formatDate(payment.voided_at) : ''}${voidedBy ? ` by ${voidedBy.full_name}` : ''}`
-                          : ''}
-                      </p>
+                      {payment.is_voided ? (
+                        <p className="truncate text-xs text-muted-foreground">
+                          Voided {payment.voided_at ? formatDate(payment.voided_at) : ''}
+                          {voidedBy ? ` by ${voidedBy.full_name}` : ''}
+                        </p>
+                      ) : null}
                       {payment.is_voided && payment.correction_reason ? (
                         <p className="text-xs text-destructive">
                           Void reason: {payment.correction_reason}
                         </p>
                       ) : null}
                     </div>
-                    <div className="shrink-0 text-right">
+                    <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/70 pt-2.5 sm:flex-col sm:items-end sm:justify-start sm:gap-2 sm:border-0 sm:pt-0">
                       <p
                         className={
                           payment.is_voided
-                            ? 'text-sm font-semibold text-muted-foreground line-through'
-                            : 'text-sm font-semibold text-success'
+                            ? 'text-base font-semibold text-muted-foreground line-through'
+                            : 'text-base font-semibold text-success'
                         }
                       >
                         {formatCurrency(payment.amount)}
                       </p>
-                      {payment.is_voided ? (
-                        <Badge variant="destructive">Voided</Badge>
-                      ) : (
-                        <Button size="sm" variant="ghost" onClick={() => setPaymentToVoid(payment)}>
-                          Void
-                        </Button>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <Badge variant="outline">{methodLabel[payment.payment_method]}</Badge>
+                        {payment.is_voided ? (
+                          <Badge variant="destructive">Voided</Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setPaymentToVoid(payment)}
+                          >
+                            Void
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </li>
                 )

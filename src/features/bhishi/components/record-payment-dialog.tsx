@@ -63,7 +63,6 @@ function RecordPaymentForm({
   const [amount, setAmount] = useState(preferred ? String(preferred.obligation.remaining) : '')
   const [paymentDate, setPaymentDate] = useState(todayISO)
   const [method, setMethod] = useState<ContributionPaymentMethod>('cash')
-  const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -110,7 +109,6 @@ function RecordPaymentForm({
       amount: parsedAmount,
       paymentDate,
       method,
-      reference,
       notes,
     }
 
@@ -268,20 +266,6 @@ function RecordPaymentForm({
                   <option value="upi">UPI</option>
                   <option value="bank_transfer">Bank transfer</option>
                 </Select>
-              </Field>
-
-              <Field
-                label="Reference"
-                htmlFor="payment-reference"
-                hint="Optional receipt or UPI reference."
-              >
-                <Input
-                  id="payment-reference"
-                  className="h-11"
-                  value={reference}
-                  onChange={(event) => setReference(event.target.value)}
-                  maxLength={80}
-                />
               </Field>
 
               <Field label="Note" htmlFor="payment-notes" hint="Optional.">
